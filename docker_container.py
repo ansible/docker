@@ -48,6 +48,65 @@ class TaskParameters(BaseClass):
         super(TaskParameters, self).__init__()
         self.client = client
 
+        self.blkio_weight = None
+        self.capabilities = None
+        self.command = None
+        self.cpu_period = None
+        self.cpu_quota = None
+        self.cpuset_cpus = None
+        self.cpuset_mems = None
+        self.cpu_shares = None
+        self.detach = None
+        self.devices = None
+        self.dns_servers = None
+        self.dns_opts = None
+        self.dns_search_domains = None
+        self.env = None
+        self.enrtypoint = None
+        self.etc_hosts = None
+        self.exposed_ports = None
+        self.force_kill = None
+        self.groups = None
+        self.hostname = None
+        self.image = None
+        self.interactive = None
+        self.ipc_mode = None
+        self.keep_volumes = None
+        self.kernel_memory = None
+        self.kill_signal = None
+        self.labels = None
+        self.links = None
+        self.log_driver = None
+        self.log_options = None
+        self.mac_address = None
+        self.memory = None
+        self.memory_reservation = None
+        self.memory_swap = None
+        self.memory_swappiness = None
+        self.name = None
+        self.network_mode = None
+        self.networks = None
+        self.oom_killer = None
+        self.paused = None
+        self.pid_mode = None
+        self.privileged = None
+        self.read_only = None
+        self.recreate = None
+        self.restart = None
+        self.restart_retries = None
+        self.shm_size = None
+        self.security_opts = None
+        self.state = None
+        self.stop_signal = None
+        self.stop_timeout = None
+        self.trust_image_content = None
+        self.tty = None
+        self.user = None
+        self.uts = None
+        self.volume = None
+        self.volumes_from = None
+        self.volume_driver = None
+
         for key in client.module_params:
             setattr(self, key, client.module_params[key])
 
@@ -72,6 +131,10 @@ class TaskParameters(BaseClass):
 
     @property
     def update_parameters(self):
+        '''
+        Returns parameters used to update a container
+        '''
+
         update_parameters = dict(
             blkio_weight='blkio_weight',
             cpu_period='cpu_period',
@@ -86,7 +149,7 @@ class TaskParameters(BaseClass):
         result = dict(
             host_config=self._host_config()
         )
-        for key, value in update_params.iteritems():
+        for key, value in update_parameters.iteritems():
             if getattr(self, value, None) is not None:
                 result[key] = getattr(self, value)
         return result
@@ -197,9 +260,9 @@ class TaskParameters(BaseClass):
         return binds
 
     def _parse_exposed_ports(self):
-        """
+        '''
         Parse exposed ports from docker CLI-style ports syntax.
-        """
+        '''
         if self.exposed_ports is None:
             return None
 
@@ -281,6 +344,8 @@ class Container(BaseClass):
         self.container = container
         self.parameters = parameters
 
+        self.Id = None
+
         if container is not None:
             for key, value in container.iteritems():
                 setattr(self, key, value)
@@ -299,6 +364,11 @@ class Container(BaseClass):
     @property
     def not_found(self):
         return not self.container
+
+    @property
+    def running(self):
+        # TODO -- determine if container running
+        return True
 
     def differs_from_container(self):
         '''
@@ -448,15 +518,15 @@ class Container(BaseClass):
         host_config = self.container['HostConfig']
 
         config_mapping = dict(
-            cpu_period=host_config.get('CpuPeriod'),   # UPDATE
-            cpu_quota=host_config.get('CpuQuota'),     # UPDATE
-            cpuset_cpus=host_config.get('CpusetCpus'),  # UPDATE
-            cpuset_mems=host_config.get('CpusetMems'),  # UPDATE
-            cpu_shares=host_config.get('CpuShares'),    # UPDATE
-            kernel_memory=host_config.get("KernelMemory"),    # UPDATE
-            memory=host_config.get('Memory'),       # UPDATE
-            memory_reservation=host_config.get('MemoryReservation'),  # UPDATE
-            memory_swap=host_config.get('MemorySwap'),   # UPDATE
+            cpu_period=host_config.get('CpuPeriod'),
+            cpu_quota=host_config.get('CpuQuota'),
+            cpuset_cpus=host_config.get('CpusetCpus'),
+            cpuset_mems=host_config.get('CpusetMems'),
+            cpu_shares=host_config.get('CpuShares'),
+            kernel_memory=host_config.get("KernelMemory"),
+            memory=host_config.get('Memory'),
+            memory_reservation=host_config.get('MemoryReservation'),
+            memory_swap=host_config.get('MemorySwap'),
         )
 
         differences = []
@@ -580,50 +650,71 @@ class ContainerManager(BaseClass):
         self.check_mode = self.client.check_mode
 
         state = self.parameters.state
-        if state == 'started':
-            self.started()
+        if state in ('started', 'present'):
+            self.present(state)
         elif state == 'absent':
             self.absent()
 
     def fail(self, msg):
         self.client.module.fail_json(msg=msg)
 
-    def started(self):
+    def present(self, state):
         container = Container(self.client.get_container(self.parameters.name), self.parameters)
 
         if container.not_found:
             new_container = self.container_create(self.parameters.create_parameters)
             if new_container:
-                self.container_start(new_container.get('Id'))
-                new_container = self.client.get_container(new_container.get('Id'))
-                self.results['results'] = new_container
+                container = self.client.get_container(new_container.get('Id'))
+                if state == 'started':
+                    container = self.container_start(container.get('Id'))
+                container = self.update_limits(container)
+                container = self.update_networks(container)
+                self.results['results'] = container.raw
         else:
             different, differences = container.differs_from_container()
             limits_differ, different_limits = container.limits_differ_from_container()
             networks_missing, missing_networks = container.missing_networks()
-            if different:
-                # TODO -- Recreate the container
-
-            if limits_differ:
-                self.container_update(container.Id, self.parameters.update_parameters)
-
-            if networks_missing:
-                for network in missing_networks:
-                    self.connect_container_to_network(container.Id, network)
-
-            # TODO - Check for differences in network aliases and links
-
-            self.results['different'] = different
             self.results['config_differences'] = differences
             self.results['resource_limit_differneces'] = different_limits
             self.results['missing_networks'] = missing_networks
+
+            if different or self.parameters.recreate:
+                self.container_stop(container.Id)
+                self.container_remove(container.Id)
+                new_container = self.container_create(self.parameters.create_parameters)
+                if new_container:
+                    container = Container(self.client.get_container(new_container.get('Id')))
+                    if state == 'started':
+                        container = self.container_start(container.Id)
+
+            # elif state == 'started' and not container.running
+            # TODO - start the container
+            # elif self.parameters.restart:
+            # TODO - restart the container
+
+            # TODO if container running and state present, make it not running
+
+            container = self.update_limits(container)
+            container = self.update_networks(container)
             self.results['results'] = container.raw
 
     def absent(self):
         container = self.client.get_container()
         if container is not None:
-            volume_state = (True if self.parameters.keep_volumes else False)
-            self.client.remove_container(container.get('Id'), link=False, v=volume_state, force=True)
+            self.client.remove_container(container.get('Id'))
+
+    def update_limits(self, container):
+        limits_differ, different_limits = container.limits_differ_from_container()
+        if limits_differ and not self.check_mode:
+            self.container_update(container.Id, self.parameters.update_parameters)
+        return self.client.get_container(container.Id)
+
+    def update_networks(self, container):
+        networks_missing, missing_networks = container.missing_networks()
+        if networks_missing and not self.check_mode:
+            for network in missing_networks:
+                self.connect_container_to_network(container.Id, network)
+        return self.client.get_container(container.Id)
 
     def container_create(self, create_parameters):
         self.log("create container")
@@ -631,37 +722,36 @@ class ContainerManager(BaseClass):
         if not self.check_mode:
             try:
                 new_container = self.client.create_container(**create_parameters)
-                self.results['actions'].append(dict(created=new_container.get('Id')))
+                self.results['actions'].append(dict(created=new_container.get('Id'),
+                                                    create_parameters=create_parameters))
                 self.results['changed'] = True
-                return new_container
+                return self.client.get_container(new_container['Id'])
             except Exception, exc:
                 self.fail("Error creating container: {0}".format(exc))
         return None
 
     def container_start(self, container_id):
-        if container_id:
-            self.log("start container {0}".format(container_id))
-            if not self.check_mode:
-                try:
-                    response = self.client.start(container=container_id)
-                    self.results['actions'].append(dict(started=container_id))
-                    self.results['changed'] = True
-                    return response
-                except Exception, exc:
-                    self.fail("Error starting container: {0}".format(exc))
-        return None
+        self.log("start container {0}".format(container_id))
+        if not self.check_mode:
+            try:
+                response = self.client.start(container=container_id)
+                self.results['actions'].append(dict(started=container_id))
+                self.results['changed'] = True
+            except Exception, exc:
+                self.fail("Error starting container: {0}".format(exc))
+        return self.client.get_container(container_id)
 
     def container_remove(self, container_id, v=False, link=False, force=False):
-        if container_id:
-            self.log("remove container container:{0} v:{1} link:{1} force{2}".format(container_id, v, link, force))
-            if not self.check_mode:
-                try:
-                    response = self.client.remove_container(container_id, v, link, force)
-                    self.results['actions'].append(dict(removed=container_id))
-                    self.results['changed'] = True
-                    return response
-                except Exception, exc:
-                    self.fail("Error removing container: {0}".format(exc))
+        self.log("remove container container:{0} v:{1} link:{1} force{2}".format(container_id, v, link, force))
+        if not self.check_mode:
+            volume_state = (True if self.parameters.keep_volumes else False)
+            try:
+                response = self.client.remove_container(container_id, v=volume_state, link=link, force=force)
+                self.results['actions'].append(dict(removed=container_id, volume_state=volume_state))
+                self.results['changed'] = True
+                return response
+            except Exception, exc:
+                self.fail("Error removing container: {0}".format(exc))
         return None
 
     def container_update(self, container_id, update_parameters):
@@ -670,18 +760,42 @@ class ContainerManager(BaseClass):
             self.log(update_parameters, pretty_print=True)
             if not self.check_mode:
                 try:
-                    response = self.update_container(container_id, **update_parameters)
-                    self.results['actions'].append(dict(updated=container_id))
+                    self.update_container(container_id, **update_parameters)
+                    self.results['actions'].append(dict(updated=container_id, update_parameters=update_parameters))
                     self.results['changed'] = True
-                    return response
                 except Exception, exc:
                     self.fail("Error updating container: {0}".format(exc))
-        return None
+        return self.client.get_container(container_id)
 
-    def connect_container_to_network(self, container_id, network):
-        # TODO
-        pass
+    def container_kill(self, container_id):
+        if not self.check_mode:
+            try:
+                if self.parameters.kill_signal:
+                    response = self.client.kill(container_id, signal=self.parameters.kill_signal)
+                else:
+                    response = self.client.kill(container_id)
+                self.results['actions'].append(dict(killed=container_id, signal=self.parameters.kill_signal))
+                self.results['changed'] = True
+                return response
+            except Exception, exc:
+                self.fail("Error killing container: {0}".format(container_id))
 
+    def container_stop(self, container_id):
+        if self.parameters.force_kill:
+            self.container_kill(container_id)
+            return
+
+        if not self.check_mode:
+            try:
+                if self.parameters.stop_timeout:
+                    response = self.client.stop(container_id, timeout=self.parameters.stop_timeout)
+                else:
+                    response = self.client.stop(container_id)
+                self.results['actions'].append(dict(stopped=container_id, timeout=self.parameters.stop_timeout))
+                self.results['changed'] = True
+                return response
+            except Exception, exc:
+                self.fail("Error stopping container: {0}".format(container_id))
 
 def main():
     argument_spec = dict(
@@ -708,7 +822,7 @@ def main():
         image=dict(type='str', required=True),
         interactive=dict(type='bool', default=False),
         ipc_mode=dict(type='str'),
-        keep_volumes=dict(type='bool', default=False),
+        keep_volumes=dict(type='bool', default=True),
         kernel_memory=dict(type='str'),
         kill_signal=dict(type='str'),
         labels=dict(type='dict'),
@@ -758,6 +872,7 @@ def main():
         changed=False,
         check_mode=client.check_mode,
         actions=[],
+        results={}
     )
 
     if client.module.params.get('debug'):
