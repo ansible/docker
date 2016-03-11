@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 
 try:
     from docker.utils.types import Ulimit, LogConfig
@@ -106,6 +107,8 @@ class TaskParameters(BaseClass):
         self.volume = None
         self.volumes_from = None
         self.volume_driver = None
+        self.debug = None
+        self.debug_file = None
 
         for key in client.module_params:
             setattr(self, key, client.module_params[key])
@@ -145,9 +148,6 @@ class TaskParameters(BaseClass):
             mem_reservation='mem_reservation',
             memswap_limit='memory_swap',
             kernel_memory='kernel_memory'
-        )
-        result = dict(
-            host_config=self._host_config()
         )
         for key, value in update_parameters.iteritems():
             if getattr(self, value, None) is not None:
@@ -343,7 +343,6 @@ class Container(BaseClass):
         self.raw = container
         self.container = container
         self.parameters = parameters
-
         self.Id = None
 
         if container is not None:
@@ -362,8 +361,8 @@ class Container(BaseClass):
         self.parameters.client.module.fail_json(msg=msg)
 
     @property
-    def not_found(self):
-        return not self.container
+    def found(self):
+        return True if self.container else False
 
     @property
     def running(self):
@@ -661,16 +660,19 @@ class ContainerManager(BaseClass):
     def present(self, state):
         container = Container(self.client.get_container(self.parameters.name), self.parameters)
 
-        if container.not_found:
+        if not container.found:
             new_container = self.container_create(self.parameters.create_parameters)
             if new_container:
-                container = self.client.get_container(new_container.get('Id'))
+                container = new_container
+                self.log(container.raw, pretty_print=True)
                 if state == 'started':
-                    container = self.container_start(container.get('Id'))
+                    container = self.container_start(container.Id)
+                    self.log(container.raw, pretty_print=True)
                 container = self.update_limits(container)
                 container = self.update_networks(container)
                 self.results['results'] = container.raw
         else:
+            self.log(container.raw, pretty_print=True)
             different, differences = container.differs_from_container()
             limits_differ, different_limits = container.limits_differ_from_container()
             networks_missing, missing_networks = container.missing_networks()
@@ -683,9 +685,11 @@ class ContainerManager(BaseClass):
                 self.container_remove(container.Id)
                 new_container = self.container_create(self.parameters.create_parameters)
                 if new_container:
-                    container = Container(self.client.get_container(new_container.get('Id')))
+                    container = new_container
+                    self.log(container.raw, pretty_print=True)
                     if state == 'started':
                         container = self.container_start(container.Id)
+                        self.log(container.raw, pretty_print=True)
 
             # elif state == 'started' and not container.running
             # TODO - start the container
@@ -699,22 +703,29 @@ class ContainerManager(BaseClass):
             self.results['results'] = container.raw
 
     def absent(self):
-        container = self.client.get_container()
-        if container is not None:
-            self.client.remove_container(container.get('Id'))
+        container = Container(self.client.get_container(self.parameters.name), self.parameters)
+        if container.found:
+            # TODO if running stop/kill
+            self.container_remove(container.Id)
 
     def update_limits(self, container):
         limits_differ, different_limits = container.limits_differ_from_container()
+        if limits_differ:
+            self.log("limit differences:")
+            self.log(different_limits, pretty_print=True)
         if limits_differ and not self.check_mode:
             self.container_update(container.Id, self.parameters.update_parameters)
-        return self.client.get_container(container.Id)
+        return Container(self.client.get_container(container.Id), self.parameters)
 
     def update_networks(self, container):
         networks_missing, missing_networks = container.missing_networks()
+        if limits_differ:
+            self.log("networks missing")
+            self.log(missing_networks, pretty_print=True)
         if networks_missing and not self.check_mode:
             for network in missing_networks:
                 self.connect_container_to_network(container.Id, network)
-        return self.client.get_container(container.Id)
+        return Container(self.client.get_container(container.Id), self.parameters)
 
     def container_create(self, create_parameters):
         self.log("create container")
@@ -725,21 +736,21 @@ class ContainerManager(BaseClass):
                 self.results['actions'].append(dict(created=new_container.get('Id'),
                                                     create_parameters=create_parameters))
                 self.results['changed'] = True
-                return self.client.get_container(new_container['Id'])
+                return Container(self.client.get_container(new_container['Id']), self.parameters)
             except Exception, exc:
-                self.fail("Error creating container: {0}".format(exc))
+                self.fail("Error creating container {0}: {1}".format(container_id, str(exc)))
         return None
 
     def container_start(self, container_id):
         self.log("start container {0}".format(container_id))
         if not self.check_mode:
             try:
-                response = self.client.start(container=container_id)
+                self.client.start(container=container_id)
                 self.results['actions'].append(dict(started=container_id))
                 self.results['changed'] = True
             except Exception, exc:
-                self.fail("Error starting container: {0}".format(exc))
-        return self.client.get_container(container_id)
+                self.fail("Error starting container {0}: {1}".format(container_id, str(exc)))
+        return Container(self.client.get_container(container_id), self.parameters)
 
     def container_remove(self, container_id, v=False, link=False, force=False):
         self.log("remove container container:{0} v:{1} link:{1} force{2}".format(container_id, v, link, force))
@@ -751,21 +762,21 @@ class ContainerManager(BaseClass):
                 self.results['changed'] = True
                 return response
             except Exception, exc:
-                self.fail("Error removing container: {0}".format(exc))
+                self.fail("Error removing container {0}: {1}".format(container_id, str(exc)))
         return None
 
     def container_update(self, container_id, update_parameters):
         if update_parameters:
             self.log("update container {0}".format(container_id))
             self.log(update_parameters, pretty_print=True)
-            if not self.check_mode:
+            if not self.check_mode and self.client.update_container:
                 try:
-                    self.update_container(container_id, **update_parameters)
+                    self.client.update_container(container_id, **update_parameters)
                     self.results['actions'].append(dict(updated=container_id, update_parameters=update_parameters))
                     self.results['changed'] = True
                 except Exception, exc:
-                    self.fail("Error updating container: {0}".format(exc))
-        return self.client.get_container(container_id)
+                    self.fail("Error updating container {0}: {1}".format(container_id, str(exc)))
+        return Container(self.client.get_container(container_id), self.parameters)
 
     def container_kill(self, container_id):
         if not self.check_mode:
@@ -778,7 +789,7 @@ class ContainerManager(BaseClass):
                 self.results['changed'] = True
                 return response
             except Exception, exc:
-                self.fail("Error killing container: {0}".format(container_id))
+                self.fail("Error killing container {0}: {1}".format(container_id, exc))
 
     def container_stop(self, container_id):
         if self.parameters.force_kill:
@@ -795,7 +806,11 @@ class ContainerManager(BaseClass):
                 self.results['changed'] = True
                 return response
             except Exception, exc:
-                self.fail("Error stopping container: {0}".format(container_id))
+                self.fail("Error stopping container {0}: {1}".format(container_id, str(exc)))
+
+    def connect_container_to_network(self, container_id, network    ):
+        pass
+
 
 def main():
     argument_spec = dict(
@@ -819,7 +834,7 @@ def main():
         force_kill=dict(type='bool', default=False),
         groups=dict(type='list'),
         hostname=dict(type='str'),
-        image=dict(type='str', required=True),
+        image=dict(type='str'),
         interactive=dict(type='bool', default=False),
         ipc_mode=dict(type='str'),
         keep_volumes=dict(type='bool', default=True),
@@ -860,7 +875,8 @@ def main():
         uts=dict(type='str'),
         volumes=dict(type='list'),
         volumes_from=dict(type='list'),
-        volume_driver=dict(type='str')
+        volume_driver=dict(type='str'),
+        debug_file=dict(type='str', default='docker_container.log')
     )
 
     client = AnsibleDockerClient(
@@ -876,7 +892,7 @@ def main():
     )
 
     if client.module.params.get('debug'):
-        logging.basicConfig(filename='docker_container_debug.log', level=logging.DEBUG)
+        logging.basicConfig(filename=client.module.params.get('debug_file'), level=logging.DEBUG)
 
     ContainerManager(client, results)
     client.module.exit_json(**results)

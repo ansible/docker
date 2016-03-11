@@ -21,6 +21,7 @@ import ConfigParser
 import os
 import logging
 import re
+import json
 
 from os.path import expanduser
 from requests.exceptions import SSLError
@@ -56,7 +57,8 @@ DOCKER_COMMON_ARGS = dict(
     ssl_version=dict(type='str'),
     tls=dict(type='bool'),
     tls_verify=dict(type='bool'),
-    debug=dict(type='bool', default=False)
+    debug=dict(type='bool', default=False),
+    debug_file=dict(type='str')
 )
 
 DOCKER_MUTUALLY_EXCLUSIVE = [
@@ -105,9 +107,9 @@ class AnsibleDockerClient(Client):
         try:
             super(AnsibleDockerClient, self).__init__(**self._connect_params)
         except APIError, exc:
-           self.fail("Docker API error: {0}".format(exc))
+            self.fail("Docker API error: {0}".format(exc))
         except Exception, exc:
-           self.fail("Error connecting: {0}".format(exc))
+            self.fail("Error connecting: {0}".format(exc))
 
     @property
     def module_params(self):
@@ -214,7 +216,7 @@ class AnsibleDockerClient(Client):
             docker_host=self._get_value('docker_host', params['docker_host'], 'DOCKER_HOST',
                                         DEFAULT_DOCKER_HOST),
             tls_hostname=self._get_value('tls_hostname', params['tls_hostname'],
-                                        'DOCKER_TLS_HOSTNAME', None),
+                                        'DOCKER_TLS_HOSTNAME', 'localhost'),
             api_version=self._get_value('api_version', params['api_version'], 'DOCKER_API_VERSION',
                                         DEFAULT_DOCKER_API_VERSION),
             cacert_path=self._get_value('cacert_path', params['cacert_path'], 'DOCKER_CERT_PATH', None),
@@ -339,6 +341,7 @@ class AnsibleDockerClient(Client):
             self.fail(str(exc))
 
     def get_container(self, name=None):
+        self.log('here!')
         if name is None:
             return None
 
@@ -349,6 +352,7 @@ class AnsibleDockerClient(Client):
         result = None
         try:
             for container in self.containers(all=True):
+                self.log("testing container: {0}".format(container['Names']))
                 if search_name in container['Names']:
                     result = container
                     break
