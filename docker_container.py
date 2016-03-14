@@ -19,13 +19,13 @@
 
 import logging
 
-try:
-    from docker.utils.types import Ulimit, LogConfig
-   
-    # TODO decide which version of docker-py
 
-except ImportError:
-    raise Exception("Failed to import docker-py. Try `pip install docker-py`")
+REQUIRES_CONVERSION_TO_BYTES = [
+    'memory',
+    'memory_reservation',
+    'memory_swap',
+    'shm_size'
+]
 
 
 class BaseClass(object):
@@ -113,6 +113,13 @@ class TaskParameters(BaseClass):
         for key in client.module_params:
             setattr(self, key, client.module_params[key])
 
+        for param_name in REQUIRES_CONVERSION_TO_BYTES:
+            if client.module.params.get(param_name) is not None:
+                try:
+                    setattr(self, param_name, human_to_bytes(client.module.params.get(param_name)))
+                except ValueError, exc:
+                    self.fail("Failed to convert {0} to bytes: {1}".format(param_name, exc))
+
         self.ports = self._parse_exposed_ports()
         self.published_ports = self._parse_publish_ports()
         self.publish_all_ports = None
@@ -128,6 +135,9 @@ class TaskParameters(BaseClass):
         self.ulimits = self._parse_ulimits()
         self.log_config = self._parse_log_config()
         self.exp_links = None
+
+        for key, value in client.module.params.iteritems():
+            self.log("{0}: {1}".format(key, value))
 
     def fail(self, msg):
         self.client.module.fail_json(msg=msg)
@@ -149,6 +159,7 @@ class TaskParameters(BaseClass):
             memswap_limit='memory_swap',
             kernel_memory='kernel_memory'
         )
+        result = dict()
         for key, value in update_parameters.iteritems():
             if getattr(self, value, None) is not None:
                 result[key] = getattr(self, value)
@@ -341,21 +352,19 @@ class Container(BaseClass):
     def __init__(self, container, parameters):
         super(Container, self).__init__()
         self.raw = container
-        self.container = container
-        self.parameters = parameters
         self.Id = None
-
-        if container is not None:
-            for key, value in container.iteritems():
-                setattr(self, key, value)
-
-            self.parameters.expected_links = self._get_expected_links()
-            self.parameters.expected_ports = self._get_expected_ports()
-            self.parameters.expected_exposed = self._get_expected_exposed()
-            self.parameters.expected_volumes = self._get_expected_volumes()
-            self.parameters.expected_ulimits = self._get_expected_ulimits(self.parameters.ulimits)
-            self.parameters.expected_etc_hosts = self._convert_simple_dict_to_list('etc_hosts')
-            self.parameters.expected_env = self._convert_simple_dict_to_list('env', '=')
+        self.container = container
+        if container:
+            self.Id = container['Id']
+        self.log(self.container, pretty_print=True)
+        self.parameters = parameters
+        self.parameters.expected_links = None
+        self.parameters.expected_ports = None
+        self.parameters.expected_exposed = None
+        self.parameters.expected_volumes = None
+        self.parameters.expected_ulimits = None
+        self.parameters.expected_etc_hosts = None
+        self.parameters.expected_env = None
 
     def fail(self, msg):
         self.parameters.client.module.fail_json(msg=msg)
@@ -366,13 +375,23 @@ class Container(BaseClass):
 
     @property
     def running(self):
-        # TODO -- determine if container running
-        return True
+        if self.container and self.container.get('State'):
+            if self.container['State']['Running'] and self.container['State']['Status'] == 'running':
+                return True
+        return False
 
-    def differs_from_container(self):
+    def has_different_configuration(self):
         '''
         Diff parameters and existing container config. Returns tuple: (True | False, List of differences)
         '''
+
+        self.parameters.expected_links = self._get_expected_links()
+        self.parameters.expected_ports = self._get_expected_ports()
+        self.parameters.expected_exposed = self._get_expected_exposed()
+        self.parameters.expected_volumes = self._get_expected_volumes()
+        self.parameters.expected_ulimits = self._get_expected_ulimits(self.parameters.ulimits)
+        self.parameters.expected_etc_hosts = self._convert_simple_dict_to_list('etc_hosts')
+        self.parameters.expected_env = self._convert_simple_dict_to_list('env', '=')
 
         if not self.container.get('HostConfig'):
             self.fail("has_config_diff: Error parsing container properties. HostConfig missing.")
@@ -424,7 +443,8 @@ class Container(BaseClass):
             read_only=host_config.get('ReadonlyRootfs'),
             restart_policy=restart_policy.get('Name'),
             restart_retries=restart_policy.get('MaximumRetryCount'),
-            shm_size=host_config.get('ShmSize'),
+            # Cannot test shm_size, as shm_size is not incuded in container inspection results.
+            # shm_size=host_config.get('ShmSize'),
             security_opts=host_config.get("SecuriytOpt"),
             stop_signal=config.get("StopSignal"),
             tty=config.get('Tty'),
@@ -438,7 +458,7 @@ class Container(BaseClass):
         differences = []
         for key, value in config_mapping.iteritems():
             if getattr(self.parameters, key, None) is not None:
-                if isinstance(getattr(self.parameters, key), list):
+                if isinstance(getattr(self.parameters, key), list) and isinstance(value, list):
                     if len(getattr(self.parameters, key)) > 0 and isinstance(getattr(self.parameters, key)[0], dict):
                         # compare list of dictionaries
                         self.log("comparing list of dict: {0}".format(key))
@@ -449,7 +469,7 @@ class Container(BaseClass):
                         set_a = set(getattr(self.parameters, key))
                         set_b = set(value)
                         match = (set_a <= set_b)
-                elif isinstance(getattr(self.parameters, key), dict):
+                elif isinstance(getattr(self.parameters, key), dict) and isinstance(value, dict):
                     # compare two dicts
                     self.log("comparing two dicts: {0}".format(key))
                     match = self._compare_dicts(getattr(self.parameters, key), value)
@@ -507,7 +527,7 @@ class Container(BaseClass):
                 return False
         return True
 
-    def limits_differ_from_container(self):
+    def has_different_resource_limits(self):
         '''
         Diff parameters and container resource limits
         '''
@@ -530,35 +550,59 @@ class Container(BaseClass):
 
         differences = []
         for key, value in config_mapping.iteritems():
-            if getattr(self.parameters, key, None) is not None:
-                if getattr(self.parameters, key) != value:
-                    # no match. record the differences
-                    item = dict()
-                    item[key] = dict(
-                        parameter=getattr(self.parameters, key),
-                        container=value
-                    )
-                    differences.append(item)
+            if getattr(self.parameters, key, None) and getattr(self.parameters, key) != value:
+                # no match. record the differences
+                item = dict()
+                item[key] = dict(
+                    parameter=getattr(self.parameters, key),
+                    container=value
+                )
+                differences.append(item)
         different = (len(differences) > 0)
         return different, differences
 
-    def missing_networks(self):
+    def has_missing_networks(self):
         '''
         Check if the container is connected to requested networks
         '''
         missing_networks = []
         missing = False
-        if self.parameters.networks is not None:
-            if not self.container.get('HostConfig'):
-                self.fail("missing_networks: Error parsing container properties. HostConfig missing.")
-            host_config = self.container.get('HostConfig')
-            connected_networks = host_config.get('Networks')
-            for network, config in self.parameters.networks.iteritems():
-                if connected_networks.get(network, None) is None:
-                    missing_networks.append(network)
+
+        if not self.parameters.networks:
+            return missing, missing_networks
+
+        if not self.container.get('NetworkSettings'):
+            self.fail("has_missing_networks: Error parsing container properties. NetworkSettings missing.")
+
+        connected_networks = self.container['NetworkSettings']['Networks']
+        for network, config in self.parameters.networks.iteritems():
+            if connected_networks.get(network, None) is None:
+                missing_networks.append(network)
         if len(missing_networks) > 0:
             missing = True
         return missing, missing_networks
+
+    def has_extra_networks(self):
+        '''
+        Check if the container is connected to non-requested networks
+        '''
+        extra_networks = []
+        extra = False
+
+        if not self.parameters.networks:
+            return extra, extra_networks
+
+        if not self.container.get('NetworkSettings'):
+            self.fail("has_extra_networks: Error parsing container properties. NetworkSettings missing.")
+
+        connected_networks = self.container['NetworkSettings']['Networks']
+        for network in connected_networks:
+            if network not in ('bridge', 'host') and not network.startswith('container:'):
+                if network not in self.parameters.networks:
+                    extra_networks.append(network)
+        if len(extra_networks) > 0:
+            extra = True
+        return extra, extra_networks
 
     def _get_expected_ports(self):
         if self.parameters.published_ports is None:
@@ -635,7 +679,8 @@ class Container(BaseClass):
         for key, value in getattr(self.parameters, param_name).iteritems():
             results.append("{0}{1}{2}".format(key, join_with, value))
         return results
-    
+
+
 class ContainerManager(BaseClass):
     '''
     Perform container management tasks
@@ -654,53 +699,51 @@ class ContainerManager(BaseClass):
         elif state == 'absent':
             self.absent()
 
-    def fail(self, msg):
-        self.client.module.fail_json(msg=msg)
-
     def present(self, state):
-        container = Container(self.client.get_container(self.parameters.name), self.parameters)
+        container = self._get_container(self.parameters.name)
+
+        # TODO - validate that requested image exists. Define and implement actions to take
+        #        when the image does not exist.
 
         if not container.found:
+            # New container
             new_container = self.container_create(self.parameters.create_parameters)
             if new_container:
                 container = new_container
-                self.log(container.raw, pretty_print=True)
-                if state == 'started':
-                    container = self.container_start(container.Id)
-                    self.log(container.raw, pretty_print=True)
-                container = self.update_limits(container)
-                container = self.update_networks(container)
-                self.results['results'] = container.raw
-        else:
-            self.log(container.raw, pretty_print=True)
-            different, differences = container.differs_from_container()
-            limits_differ, different_limits = container.limits_differ_from_container()
-            networks_missing, missing_networks = container.missing_networks()
-            self.results['config_differences'] = differences
-            self.results['resource_limit_differneces'] = different_limits
-            self.results['missing_networks'] = missing_networks
-
-            if different or self.parameters.recreate:
-                self.container_stop(container.Id)
-                self.container_remove(container.Id)
-                new_container = self.container_create(self.parameters.create_parameters)
-                if new_container:
-                    container = new_container
-                    self.log(container.raw, pretty_print=True)
-                    if state == 'started':
-                        container = self.container_start(container.Id)
-                        self.log(container.raw, pretty_print=True)
-
-            # elif state == 'started' and not container.running
-            # TODO - start the container
-            # elif self.parameters.restart:
-            # TODO - restart the container
-
-            # TODO if container running and state present, make it not running
-
             container = self.update_limits(container)
             container = self.update_networks(container)
+            if state == 'started':
+                container = self.container_start(container.Id)
             self.results['results'] = container.raw
+            return True
+
+        # Existing container
+        self.log(container.raw, pretty_print=True)
+        different, differences = container.has_different_configuration()
+
+        if different or self.parameters.recreate:
+            self.results['config_differences'] = differences
+            self.container_stop(container.Id)
+            self.container_remove(container.Id)
+            new_container = self.container_create(self.parameters.create_parameters)
+            if new_container:
+                container = new_container
+
+        container = self.update_limits(container)
+        container = self.update_networks(container)
+
+        # TODO implement has_extra_networks
+
+        if state == 'started' and not container.running:
+            container = self.container_start(container.Id)
+        elif state == 'started' and self.parameters.restart:
+            self.container_stop(container.Id)
+            container = self.container_start(container.Id)
+        elif state == 'present' and container.running:
+            self.container_stop(container.Id)
+            container = self._get_container(container.Id)
+
+        self.results['results'] = container.raw
 
     def absent(self):
         container = Container(self.client.get_container(self.parameters.name), self.parameters)
@@ -708,24 +751,35 @@ class ContainerManager(BaseClass):
             # TODO if running stop/kill
             self.container_remove(container.Id)
 
+    def fail(self, msg):
+        self.client.module.fail_json(msg=msg)
+
+    def _get_container(self, container):
+        '''
+        Expects container ID or Name. Returns a container object
+        '''
+        return Container(self.client.get_container(container), self.parameters)
+
     def update_limits(self, container):
-        limits_differ, different_limits = container.limits_differ_from_container()
+        limits_differ, different_limits = container.has_different_resource_limits()
         if limits_differ:
             self.log("limit differences:")
             self.log(different_limits, pretty_print=True)
         if limits_differ and not self.check_mode:
             self.container_update(container.Id, self.parameters.update_parameters)
-        return Container(self.client.get_container(container.Id), self.parameters)
+            return self._get_container(container.Id)
+        return container
 
     def update_networks(self, container):
-        networks_missing, missing_networks = container.missing_networks()
-        if limits_differ:
+        networks_missing, missing_networks = container.has_missing_networks()
+        if networks_missing:
             self.log("networks missing")
             self.log(missing_networks, pretty_print=True)
         if networks_missing and not self.check_mode:
             for network in missing_networks:
                 self.connect_container_to_network(container.Id, network)
-        return Container(self.client.get_container(container.Id), self.parameters)
+            return self._get_container(container.Id)
+        return container
 
     def container_create(self, create_parameters):
         self.log("create container")
@@ -736,7 +790,7 @@ class ContainerManager(BaseClass):
                 self.results['actions'].append(dict(created=new_container.get('Id'),
                                                     create_parameters=create_parameters))
                 self.results['changed'] = True
-                return Container(self.client.get_container(new_container['Id']), self.parameters)
+                return self._get_container(new_container['Id'])
             except Exception, exc:
                 self.fail("Error creating container {0}: {1}".format(container_id, str(exc)))
         return None
@@ -750,7 +804,7 @@ class ContainerManager(BaseClass):
                 self.results['changed'] = True
             except Exception, exc:
                 self.fail("Error starting container {0}: {1}".format(container_id, str(exc)))
-        return Container(self.client.get_container(container_id), self.parameters)
+        return self._get_container(container_id)
 
     def container_remove(self, container_id, v=False, link=False, force=False):
         self.log("remove container container:{0} v:{1} link:{1} force{2}".format(container_id, v, link, force))
@@ -769,14 +823,14 @@ class ContainerManager(BaseClass):
         if update_parameters:
             self.log("update container {0}".format(container_id))
             self.log(update_parameters, pretty_print=True)
-            if not self.check_mode and self.client.update_container:
+            if not self.check_mode and callable(getattr(self.client, 'update_container')):
                 try:
                     self.client.update_container(container_id, **update_parameters)
                     self.results['actions'].append(dict(updated=container_id, update_parameters=update_parameters))
                     self.results['changed'] = True
                 except Exception, exc:
                     self.fail("Error updating container {0}: {1}".format(container_id, str(exc)))
-        return Container(self.client.get_container(container_id), self.parameters)
+        return self._get_container(container_id)
 
     def container_kill(self, container_id):
         if not self.check_mode:
@@ -846,10 +900,10 @@ def main():
                                              'awslogs', 'splunk'], default='json-file'),
         log_options=dict(type='str'),
         mac_address=dict(type='str'),
-        memory=dict(type='str', default='0'),
-        memory_reservation=dict(type='str', default='0'),
-        memory_swap=dict(type='str', default='0'),
-        memory_swappiness=dict(type='int', default=0),
+        memory=dict(type='str'),
+        memory_reservation=dict(type='str'),
+        memory_swap=dict(type='str'),
+        memory_swappiness=dict(type='int'),
         name=dict(type='str', required=True),
         network_mode=dict(type='str'),
         networks=dict(type='dict'),

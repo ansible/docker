@@ -17,37 +17,31 @@
 # You should have received a copy of the GNU General Public License
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
-import ConfigParser
 import os
 import logging
 import re
 import json
 
-from os.path import expanduser
 from requests.exceptions import SSLError
 from urlparse import urlparse
+
+HAS_DOCKER_PY = True
 
 try:
     from docker import Client
     from docker.errors import APIError, TLSParameterError
     from docker.tls import TLSConfig
     from docker.constants import DEFAULT_TIMEOUT_SECONDS, DEFAULT_DOCKER_API_VERSION
-
-    ## TODO - Which version(s) of docker-py will be supported
-
+    from docker.utils.types import Ulimit, LogConfig
 except ImportError:
-    raise Exception("Failed to import docker-py. Try `pip install docker-py`")
-
+    HAS_DOCKER_PY = False
 
 DEFAULT_DOCKER_HOST = 'unix://var/run/docker.sock'
 DEFAULT_TLS = False
 DEFAULT_TLS_VERIFY = False
 
-DOCKER_PROFILE_PATH = ".ansible_docker/profiles"
-
 DOCKER_COMMON_ARGS = dict(
     docker_host=dict(type="str"),
-    docker_profile=dict(type="str"),
     tls_hostname=dict(type="str"),
     api_version=dict(type="str"),
     timeout=dict(type='int'),
@@ -69,10 +63,44 @@ DOCKER_REQUIRED_TOGETHER = [
     ['cert_path', 'key_path']
 ]
 
+BYTE_SUFFIXES = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+
+
+if not HAS_DOCKER_PY:
+    # No docker-py. Create a place holder client to allow
+    # instantiation of AnsibleModule and proper error handing
+    class Client(object):
+        def __init__(self, **kwargs):
+            pass
+
+
+def human_to_bytes(number):
+    if number is None:
+        return 0
+
+    if isinstance(number, int):
+        return number
+
+    if number[-1].isdigit():
+        return int(number)
+
+    if number[-1] == BYTE_SUFFIXES[0] and number[-2].isdigit():
+        return int(number[:-1])
+
+    i = 1
+    for each in BYTE_SUFFIXES[1:]:
+        if number[-len(each):] == BYTE_SUFFIXES[i]:
+            return int(number[:-len(each)]) * (1024 ** i)
+        i += 1
+
+    raise ValueError("Failed to convert {0}. The suffix must be one of {1}".format(number,
+                                                                                   ','.join(BYTE_SUFFIXES)))
+
 
 class AnsibleDockerClient(Client):
 
     def __init__(self, argument_spec=None, supports_check_mode=False, mutually_exclusive=None, required_together=None):
+
         self.logger = logging.getLogger(self.__class__.__name__)
 
         merged_arg_spec = dict()
@@ -97,12 +125,11 @@ class AnsibleDockerClient(Client):
             mutually_exclusive=mutually_exclusive_params,
             required_together=required_together_params)
 
+        if not HAS_DOCKER_PY:
+            self.fail("Failed to import docker-py. Try `pip install docker-py`")
+
         self.check_mode = self.module.check_mode   
         self._connect_params = self._get_connect_params()
-
-        self.log("connect params:")
-        for key in self._connect_params:
-            self.log("  {0}: {1}".format(key, self._connect_params[key]))
 
         try:
             super(AnsibleDockerClient, self).__init__(**self._connect_params)
@@ -126,34 +153,6 @@ class AnsibleDockerClient(Client):
     
     def fail(self, msg):
         self.module.fail_json(msg=msg)
-        
-    def _get_auth_file(self):
-        path = expanduser("~")
-        path += '/' + DOCKER_PROFILE
-        p = ConfigParser.ConfigParser()
-        try:
-            p.read(path)
-            return p
-        except Exception, exc:
-            self.module.fail_json(
-                msg="Failed to access {0}. Does the file exist? Do you have read permissions? {1}".format(path, exc))
-
-    def _parse_profile(self, profile, default_params):
-        parser = self._get_auth_file()
-        for key in default_params:
-            try:
-                file_value = parser.get(profile, key, raw=True)
-                if file_value in BOOLEAN_TRUE:
-                    default_params[key] = True
-                if file_value in BOOLEAN_FALSE:
-                    default_params[key] = False
-                default_params[key] = file_value
-            except Exception, exc:
-                self.module.fail_json(
-                    msg="Error getting {0} for profile {1} in ~/{2} - {3}".format(key,
-                                                                                  profile,
-                                                                                  DOCKER_PROFILE_PATH,
-                                                                                  exc))
 
     @staticmethod
     def _get_value(param_name, param_value, env_variable, default_value):
@@ -194,23 +193,6 @@ class AnsibleDockerClient(Client):
         params = dict()
         for key in DOCKER_COMMON_ARGS:
             params[key] = self.module.params.get(key)
-
-        if params['docker_profile']:
-
-            ## TODO -- Do we want to support profiles?
-
-            self.log('Retrieving profile {0}'.format(params['docker_profile']))
-            self._parse_profile(params['docker_profile'], params)
-            return params
-
-        docker_profile_env = os.environ.get('ANSIBLE_DOCKER_PROFILE')
-        if docker_profile_env:
-
-            ## TODO -- Do we want to support profiles?
-
-            self.log('Retrieving profile {0}'.format(docker_profile_env))
-            self._parse_profile(docker_profile_env, params)
-            return params
 
         result = dict(
             docker_host=self._get_value('docker_host', params['docker_host'], 'DOCKER_HOST',
