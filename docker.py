@@ -97,9 +97,22 @@ def human_to_bytes(number):
                                                                                    ','.join(BYTE_SUFFIXES)))
 
 
+class DockerBaseClass(object):
+
+    def __init__(self):
+        self._logger = logging.getLogger(self.__class__.__name__)
+
+    def log(self, msg, pretty_print=False):
+        if pretty_print:
+            self._logger.debug(json.dumps(msg, sort_keys=True, indent=4, separators=(',', ': ')))
+        else:
+            self._logger.debug(msg)
+
+
 class AnsibleDockerClient(Client):
 
-    def __init__(self, argument_spec=None, supports_check_mode=False, mutually_exclusive=None, required_together=None):
+    def __init__(self, argument_spec=None, supports_check_mode=False, mutually_exclusive=None,
+                 required_together=None, required_if=None):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -123,7 +136,8 @@ class AnsibleDockerClient(Client):
             argument_spec=merged_arg_spec,
             supports_check_mode=supports_check_mode,
             mutually_exclusive=mutually_exclusive_params,
-            required_together=required_together_params)
+            required_together=required_together_params,
+            required_if=required_if)
 
         if not HAS_DOCKER_PY:
             self.fail("Failed to import docker-py. Try `pip install docker-py`")
@@ -323,7 +337,9 @@ class AnsibleDockerClient(Client):
             self.fail(str(exc))
 
     def get_container(self, name=None):
-        self.log('here!')
+        '''
+        Lookup a container and return the inspection results.
+        '''
         if name is None:
             return None
 
@@ -356,3 +372,32 @@ class AnsibleDockerClient(Client):
                 self.fail("Error inspecting container: {0}".format(exc))
 
         return result
+
+    def find_image(self, name, tag="latest"):
+        '''
+        Lookup an image and return the inspection results.
+        '''
+        if not name:
+            return None
+
+        lookup = "{0}:{1}".format(name, tag)
+        try:
+            images = self.images(name=lookup)
+        except Exception, exc:
+            self.fail("Error getting image: {0}".format(str(exc)))
+        if len(images) == 1:
+            return self.inspect_image(images[0]['Id'])
+        if len(images) > 1:
+            self.fail("Registry returned more than one result for {0}".format(lookup))
+        return None
+
+    def pull_image(self, name, tag="latest"):
+        '''
+        Pull an image
+        '''
+        try:
+            return self.pull(name, tag=tag, stream=True)
+        except Exception, exc:
+            self.fail("Error pulling image: {0}".format(str(exc)))
+
+

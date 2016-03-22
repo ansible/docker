@@ -19,6 +19,8 @@
 
 import logging
 
+from ansible.module_utils.docker import *
+
 
 REQUIRES_CONVERSION_TO_BYTES = [
     'memory',
@@ -28,19 +30,7 @@ REQUIRES_CONVERSION_TO_BYTES = [
 ]
 
 
-class BaseClass(object):
-
-    def __init__(self):
-        self._logger = logging.getLogger(self.__class__.__name__)
-
-    def log(self, msg, pretty_print=False):
-        if pretty_print:
-            self._logger.debug(json.dumps(msg, sort_keys=True, indent=4, separators=(',', ': ')))
-        else:
-            self._logger.debug(msg)
-
-
-class TaskParameters(BaseClass):
+class TaskParameters(DockerBaseClass):
     '''
     Access and parse module parameters
     '''
@@ -347,7 +337,7 @@ class TaskParameters(BaseClass):
             self.fail('Error parsing logging options - {0}'.format(exc))
 
 
-class Container(BaseClass):
+class Container(DockerBaseClass):
     
     def __init__(self, container, parameters):
         super(Container, self).__init__()
@@ -681,7 +671,7 @@ class Container(BaseClass):
         return results
 
 
-class ContainerManager(BaseClass):
+class ContainerManager(DockerBaseClass):
     '''
     Perform container management tasks
     '''
@@ -954,7 +944,6 @@ def main():
 
 # import module snippets
 from ansible.module_utils.basic import *
-from ansible.module_utils.docker import *
 
 if __name__ == '__main__':
     main()
