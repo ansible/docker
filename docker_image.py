@@ -25,6 +25,7 @@ try:
     from docker import auth
     from docker import utils
 except:
+    # missing docker-py handled in ansible.module_utils.docker
     pass
 
 DOCUMENTATION = '''
@@ -334,7 +335,7 @@ class ImageManager(DockerBaseClass):
 
     def archive_image(self, name, tag):
         '''
-        Archive image
+        Archive image to a .tar file
         '''
         if not tag:
             tag = "latest"

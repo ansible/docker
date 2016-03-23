@@ -396,8 +396,12 @@ class AnsibleDockerClient(Client):
         Pull an image
         '''
         try:
-            return self.pull(name, tag=tag, stream=True)
+            self.log("Pulling image {0}:{1}".format(name, tag))
+            for line in self.pull(name, tag=tag, stream=True):
+                response = json.loads(line)
+                self.log(response, pretty_print=True)
+            return self.find_image(name, tag)
         except Exception, exc:
-            self.fail("Error pulling image: {0}".format(str(exc)))
+            self.fail("Error pulling image {0}:{1} - {2}".format(name, tag, str(exc)))
 
 

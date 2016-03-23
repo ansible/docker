@@ -21,6 +21,13 @@ import logging
 
 from ansible.module_utils.docker import *
 
+try:
+    from docker import auth
+    from docker import utils
+except:
+    # missing docker-py handled in ansible.module_utils.docker
+    pass
+
 
 REQUIRES_CONVERSION_TO_BYTES = [
     'memory',
@@ -81,6 +88,7 @@ class TaskParameters(DockerBaseClass):
         self.paused = None
         self.pid_mode = None
         self.privileged = None
+        self.pull = None
         self.read_only = None
         self.recreate = None
         self.restart = None
@@ -346,6 +354,7 @@ class Container(DockerBaseClass):
         self.container = container
         if container:
             self.Id = container['Id']
+            self.Image = container['Image']
         self.log(self.container, pretty_print=True)
         self.parameters = parameters
         self.parameters.expected_links = None
@@ -398,6 +407,8 @@ class Container(DockerBaseClass):
         detached = (config.get('AttachStderr') and config.get('AttachStdout'))
         host_config['Ulimits'] = self._get_expected_ulimits(host_config['Ulimits'])
 
+        self.log("command")
+        self.log(self.parameters.command, pretty_print=True)
         self.log(self.parameters.expected_ulimits, pretty_print=True)
 
         # Map parameters to container inspect results
@@ -691,9 +702,7 @@ class ContainerManager(DockerBaseClass):
 
     def present(self, state):
         container = self._get_container(self.parameters.name)
-
-        # TODO - validate that requested image exists. Define and implement actions to take
-        #        when the image does not exist.
+        image = self._get_image()
 
         if not container.found:
             # New container
@@ -710,8 +719,10 @@ class ContainerManager(DockerBaseClass):
         # Existing container
         self.log(container.raw, pretty_print=True)
         different, differences = container.has_different_configuration()
-
-        if different or self.parameters.recreate:
+        image_different = self._image_is_different(image, container)
+        if image_different:
+            self.results['image_different'] = True
+        if image_different or different or self.parameters.recreate:
             self.results['config_differences'] = differences
             self.container_stop(container.Id)
             self.container_remove(container.Id)
@@ -749,6 +760,34 @@ class ContainerManager(DockerBaseClass):
         Expects container ID or Name. Returns a container object
         '''
         return Container(self.client.get_container(container), self.parameters)
+
+    def _get_image(self):
+        if not self.parameters.image:
+            return None
+
+        repository, tag = utils.parse_repository_tag(self.parameters.image)
+        registry, repo_name = auth.resolve_repository_name(repository)
+        if registry:
+            config = auth.load_config()
+            if not auth.resolve_authconfig(config, registry):
+                self.fail("Error: configuration for {0} not found. Try logging into {0} first.".format(registry))
+
+        image = self.client.find_image(repository, tag)
+        if not image or self.parameters.pull:
+            if not self.check_mode:
+                image = self.client.pull_image(repository, tag)
+                self.results['actions'].append("Pulled image {0}:{1}".format(repository, tag))
+                self.results['changed'] = True
+        self.log("image")
+        self.log(image, pretty_print=True)
+        return image
+
+    def _image_is_different(self, image, container):
+        if image and image.get('Id'):
+            if container and container.Image:
+                if image.get('Id') != container.Image:
+                    return True
+        return False
 
     def update_limits(self, container):
         limits_differ, different_limits = container.has_different_resource_limits()
@@ -860,7 +899,7 @@ def main():
     argument_spec = dict(
         blkio_weight=dict(type='int'),
         capabilities=dict(type='list'),
-        command=dict(type='str'),
+        command=dict(type='list'),
         cpu_period=dict(type='int'),
         cpu_quota=dict(type='int'),
         cpuset_cpus=dict(type='str'),
@@ -902,6 +941,7 @@ def main():
         pid_mode=dict(type='str', default='host'),
         privileged=dict(type='bool', default=False),
         published_ports=dict(type='list', aliases=['ports']),
+        pull=dict(type='bool', default=False),
         read_only=dict(type='bool', default=False),
         recreate=dict(type='bool', default=False),
         restart=dict(type='bool', default=False),
@@ -923,8 +963,13 @@ def main():
         debug_file=dict(type='str', default='docker_container.log')
     )
 
+    required_if = [
+        ('state', 'present', ['image'])
+    ]
+
     client = AnsibleDockerClient(
         argument_spec=argument_spec,
+        required_if=required_if,
         supports_check_mode=True
     )
 
