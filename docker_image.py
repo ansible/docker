@@ -31,7 +31,7 @@ except:
 DOCUMENTATION = '''
 ---
 module: docker_image
-author: "Pavel Antonov (@softzilla)"
+author: "Chris Houseknecht (@chouseknecht)"
 version_added: "1.5"
 short_description: manage docker images
 description:
