@@ -20,9 +20,7 @@
 #
 
 import base64
-import json
 import logging
-import os
 
 from ansible.module_utils.docker import *
 
@@ -263,7 +261,7 @@ def main():
         reauthorize=dict(type='bool', default=False, aliases=['reauth']),
         config_path=dict(type='str', default='~/.docker/config.json', aliases=['self.config_path',
                                                                                'dockercfg_path']),
-        debug_file=dict(type='str', default='docker_login.log')
+        log_path=dict(type='str', default='docker_login.log')
     )
 
     required_if = [
@@ -282,9 +280,6 @@ def main():
         actions=[],
         results={}
     )
-
-    if client.module.params.get('debug'):
-        logging.basicConfig(filename=client.module.params.get('debug_file'), level=logging.DEBUG)
 
     LoginManager(client, results)
     client.module.exit_json(**results)

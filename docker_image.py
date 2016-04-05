@@ -31,176 +31,144 @@ except:
 DOCUMENTATION = '''
 ---
 module: docker_image
-author: "Chris Houseknecht (@chouseknecht)"
-version_added: "1.5"
-short_description: manage docker images
+
+short_description: Manage docker images.
+
 description:
-     - Create, check and remove docker images
+     - Build, load or pull an image, making the image available for creating containers. Also supports tagging an
+       image into a repository and archiving an image to a .tar file.
+
 options:
-  path:
+  archive_path:
     description:
-       - Path to directory with Dockerfile
-    required: false
-    default: null
-    aliases: []
+      - Use with state 'present' to archive an image to a .tar file.
+  config_path:
+    description:
+      - Path to the Docker CLI config file.
+    default: '~/.docker/config.json'
   dockerfile:
     description:
-       - Dockerfile to use
-    required: false
+      - Use with state 'present' to provide an alternate name for the Dockerfile to use when building an image.
     default: Dockerfile
     version_added: "2.0"
+  force:
+    description:
+      - Use with absent state to un-tag and remove all images matching the specified name. Use with states 'present'
+        and 'tagged' to take action even when an image already exists. If archive_path is specified, the force option
+        will cause an existing archive to be overwritten.
+    default: false
+  http_timeout:
+    description:
+      - Timeout for HTTP requests during the image build operation. Provide a positive integer value for the number of
+        seconds.
   name:
     description:
-       - Image name to work with
+      - Image name. Name format will be one of: name, repository/name, registry_server:port/name.
+        When pushing or pulling an image the name can optionally include the tag by appending ':tag_name'.
     required: true
-    default: null
-    aliases: []
-  tag:
+  path:
     description:
-       - Image tag to work with
-    required: false
-    default: "latest"
-    aliases: []
+      - Use with state 'present' to build an image. Will be the path to a directory containing the context and
+        Dockerfile for building an image.
+    aliases:
+      - build_path
+  push:
+    description:
+      - Use with state present to always push an image to the registry. The image name must contain a repository
+        path and optionally a registry. For example: registry.ansible.com/user_a/repository
+    default: false
+  pull:
+    description:
+      - When building an image downloads any updates to the FROM image in Dockerfiles.
+    default: true
+  rm:
+    description:
+      - Remove intermediate containers after build.
+    default: true
   nocache:
     description:
-      - Do not use cache with building
-    required: false
+      - Do not use cache when building an image.
     default: false
-    aliases: []
-  docker_url:
+  repository:
     description:
-      - URL of docker host to issue commands to
-    required: false
-    default: ${DOCKER_HOST} or unix://var/run/docker.sock
-    aliases: []
-  use_tls:
-    description:
-      - Whether to use tls to connect to the docker server.  "no" means not to
-        use tls (and ignore any other tls related parameters). "encrypt" means
-        to use tls to encrypt the connection to the server.  "verify" means to
-        also verify that the server's certificate is valid for the server
-        (this both verifies the certificate against the CA and that the
-        certificate was issued for that host. If this is unspecified, tls will
-        only be used if one of the other tls options require it.
-    choices: [ "no", "encrypt", "verify" ]
-    version_added: "2.0"
-  tls_client_cert:
-    description:
-      - Path to the PEM-encoded certificate used to authenticate docker client.
-        If specified tls_client_key must be valid
-    default: ${DOCKER_CERT_PATH}/cert.pem
-    version_added: "2.0"
-  tls_client_key:
-    description:
-      - Path to the PEM-encoded key used to authenticate docker client. If
-        specified tls_client_cert must be valid
-    default: ${DOCKER_CERT_PATH}/key.pem
-    version_added: "2.0"
-  tls_ca_cert:
-    description:
-      - Path to a PEM-encoded certificate authority to secure the Docker connection.
-        This has no effect if use_tls is encrypt.
-    default: ${DOCKER_CERT_PATH}/ca.pem
-    version_added: "2.0"
-  tls_hostname:
-    description:
-      - A hostname to check matches what's supplied in the docker server's
-        certificate.  If unspecified, the hostname is taken from the docker_url.
-    default: Taken from docker_url
-    version_added: "2.0"
-  docker_api_version:
-    description:
-      - Remote API version to use. This defaults to the current default as
-        specified by docker-py.
-    default: docker-py default remote API version
-    version_added: "2.0"
+      - Use with state tagged to provide the full path to the repository.
   state:
     description:
-      - Set the state of the image
-    required: false
+      - Make assertions about the state of an image.
+      - When 'absent' an image will be removed. Use the force option to un-tag and remove all images
+        matching the provided name.
+      - When 'present' check if an image exists using the provided name and tag. If the image is not found or the
+        force option is used, the image will either be pulled, built or loaded. By default the image will be pulled
+        from Docker Hub. To build the image, provide a path value set to a directory containing a context and
+        Dockerfile. To load an image, specify load_path to provide a path to an archive file.
+      - Use 'tagged' to tag an image into a repository. Provide a repository value containing the repository path. Use
+        the force option to replace an existing image.
     default: present
-    choices: [ "present", "absent", "build" ]
-    aliases: []
-  timeout:
+    choices:
+      - absent
+      - present
+      - tagged
+  tag:
     description:
-      - Set image operation timeout
-    required: false
-    default: 600
-    aliases: []
+      - Used to select an image when pulling. Will be added to the image when pushing, tagging or building. Defaults to
+       'latest' when pulling an image. Required when tagging.
+    default: latest
+
 requirements:
-    - "python >= 2.6"
-    - "docker-py"
-    - "requests"
+  - "python >= 2.6"
+  - "docker-py"
+
+authors:
+
 '''
 
 EXAMPLES = '''
-Build docker image if required. Path should contains Dockerfile to build image:
 
-- hosts: web
-  become: yes
-  tasks:
-  - name: check or build image
-    docker_image: path="/path/to/build/dir" name="my/app" state=present
+- name: pull an image
+  docker_image:
+    name: pacur/centos-7
 
-Build new version of image:
+- name: Tag to repository in private registry
+  docker_image:
+    name: pacur/centos-7
+    state: tagged
+    repository: registry.ansible.com/chouseknecht/centos_images
+    tag: 7.0
+    push: yes
 
-- hosts: web
-  become: yes
-  tasks:
-  - name: check or build image
-    docker_image: path="/path/to/build/dir" name="my/app" state=build
+- name: Remove image
+  docker_image:
+    state: absent
+    name: registry.ansible.com/chouseknecht/sinatra
+    tag: v1
 
-Remove image from local docker storage:
+- name: Build an image and archive it
+  docker_image:
+    path: ./sinatra
+    name: registry.ansible.com/chouseknecht/sinatra
+    tag: v1
 
-- hosts: web
-  become: yes
-  tasks:
-  - name: remove image
-    docker_image: name="my/app" state=absent
+- name: Archive image
+  docker_image:
+    name: registry.ansible.com/chouseknecht/sinatra
+    tag: v1
+    archive_path: my_sinatra.tar
+
+- name: Load image from archive
+  docker_image:
+    name: registry.ansible.com/chouseknecht/sinatra
+    tag: v1
+    load_path: my_sinatra.tar
 
 '''
-
-import re
-import os
-from urlparse import urlparse
-
-try:
-    import json
-except ImportError:
-    import simplejson as json
-
-try:
-    from requests.exceptions import *
-    HAS_REQUESTS = True
-except ImportError:
-    HAS_REQUESTS = False
-
-try:
-    import docker.client
-    HAS_DOCKER_CLIENT = True
-except ImportError:
-    HAS_DOCKER_CLIENT = False
-
-DEFAULT_DOCKER_API_VERSION = None
-if HAS_DOCKER_CLIENT:
-    try:
-        from docker.errors import APIError as DockerAPIError
-    except ImportError:
-        from docker.client import APIError as DockerAPIError
-
-    try:
-        # docker-py 1.2+
-        import docker.constants
-        DEFAULT_DOCKER_API_VERSION = docker.constants.DEFAULT_DOCKER_API_VERSION
-    except (ImportError, AttributeError):
-        # docker-py less than 1.2
-        DEFAULT_DOCKER_API_VERSION = docker.client.DEFAULT_DOCKER_API_VERSION
 
 
 class ImageManager(DockerBaseClass):
 
     def __init__(self, client, results):
+
         super(ImageManager, self).__init__()
+
         self.client = client
         self.results = results
         parameters = self.client.module.params
@@ -223,7 +191,7 @@ class ImageManager(DockerBaseClass):
         self.tag = parameters.get('tag')
         self.http_timeout = parameters.get('http_timeout')
 
-        if self.state == 'present':
+        if self.state in ['present', 'build']:
             self.present()
         elif self.state == 'absent':
             self.absent()
@@ -235,7 +203,10 @@ class ImageManager(DockerBaseClass):
 
     def present(self):
         '''
-        Handle state present
+        Handles state = 'present', which includes building, loading or pulling an image,
+        depending on user provided parameters.
+
+        :returns None
         '''
         image = self.client.find_image(name=self.name, tag=self.tag)
 
@@ -258,12 +229,12 @@ class ImageManager(DockerBaseClass):
                     params['tag'] = "{0}:{1}".format(self.name, self.tag)
                 if self.container_limits:
                     params['container_limits'] = self.container_limits,
-                self.log("Bulding image {0}".format(params['tag']))
+                self.log("Building image {0}".format(params['tag']))
                 if not self.check_mode:
+                    self.results['actions'].append("Built image {0} from {1}".format(params['tag'], self.path))
                     for line in self.client.build(**params):
                         self.log(line, pretty_print=True)
                 self.results['changed'] = True
-                self.results['actions'].append("Built image {0} from {1}".format(params['tag'], self.path))
                 image = self.client.find_image(name=self.name, tag=self.tag)
                 if image:
                     self.results['results'] = image
@@ -278,6 +249,7 @@ class ImageManager(DockerBaseClass):
                     name = "{0}:{1}".format(self.name, self.tag)
 
                 if not self.check_mode:
+                    self.results['actions'].append("Loaded image {0} from {1}".format(name, self.load_path))
                     try:
                         self.log("Reading image data from {0}".format(self.load_path))
                         image_tar = open(self.load_path, 'r')
@@ -293,7 +265,6 @@ class ImageManager(DockerBaseClass):
                         self.fail("Error loading image {0} - {1}".format(name, str(exc)))
 
                 self.results['changed'] = True
-                self.results['actions'].append("Loaded image {0} from {1}".format(name, self.load_path))
                 image = self.client.find_image(self.name, self.tag)
                 if image:
                     self.results['results'] = image
@@ -301,10 +272,10 @@ class ImageManager(DockerBaseClass):
             else:
                 # pull the image
                 if not self.check_mode:
+                    self.results['actions'].append('Pulled image {0}:{1}'.format(self.name, self.tag))
                     self.client.pull_image(self.name, tag=self.tag)
 
                 self.results['changed'] = True
-                self.results['actions'].append('Pulled image {0}:{1}'.format(self.name, self.tag))
                 image = self.client.find_image(name=self.name, tag=self.tag)
                 if image:
                     self.results['results'] = image
@@ -317,7 +288,9 @@ class ImageManager(DockerBaseClass):
 
     def absent(self):
         '''
-        Remove image
+        Handles state = 'absent', which removes an image.
+
+        :return None
         '''
         image = self.client.find_image(name=self.name, tag=self.tag)
         if image:
@@ -335,7 +308,10 @@ class ImageManager(DockerBaseClass):
 
     def archive_image(self, name, tag):
         '''
-        Archive image to a .tar file
+        Archive an image to a .tar file. Called when archive_path is passed.
+
+        :param name - name of the image. Type: str
+        :return None
         '''
         if not tag:
             tag = "latest"
@@ -352,6 +328,7 @@ class ImageManager(DockerBaseClass):
                     self.fail("Error getting image {0} - {1}".format(image_name, str(exc)))
 
                 if not self.check_mode:
+                    self.results['actions'].append('Archived image {0} to {1}'.format(image_name, self.archive_path))
                     try:
                         image_tar = open(self.archive_path, 'w')
                         image_tar.write(image.data)
@@ -360,14 +337,17 @@ class ImageManager(DockerBaseClass):
                         self.fail("Error writing image archive {0} - {1}".format(self.archive_path, str(exc)))
 
                 self.results['changed'] = True
-                self.results['actions'].append('Archived image {0} to {1}'.format(image_name, self.archive_path))
                 image = self.client.find_image(name=name, tag=tag)
                 if image:
                     self.results['results'] = image
 
     def push_image(self, name, tag=None):
         '''
-        Push image
+        Push an image to a repository.
+
+        :param name - name of the image to push. Type: str
+        :param tag - use a specific tag. Type: str
+        :return: None
         '''
         repository = name
         if not tag:
@@ -383,6 +363,9 @@ class ImageManager(DockerBaseClass):
             self.log("pushing image {0}".format(repository))
             status = None
             if not self.check_mode:
+                self.results['actions'].append("Pushed image {0} to {1}:{2}".format(self.name,
+                                                                                    self.repository,
+                                                                                    self.tag))
                 for line in self.client.push(repository, tag=tag, stream=True):
                     response = json.loads(line)
                     self.log(response, pretty_print=True)
@@ -391,9 +374,6 @@ class ImageManager(DockerBaseClass):
                         raise Exception(response['errorDetail']['message'])
                     status = response.get('status')
             self.results['changed'] = True
-            self.results['actions'].append("Pushed image {0} to {1}:{2}".format(self.name,
-                                                                                self.repository,
-                                                                                self.tag))
             image = self.client.find_image(name=repository, tag=tag)
             if image:
                 self.results['results'] = image
@@ -405,20 +385,22 @@ class ImageManager(DockerBaseClass):
 
     def tagged(self):
         '''
-        Tag an image into a repository
+        Handle state = 'tagged' to tag an image into a repository.
+
+        :return None
         '''
         image = self.client.find_image(name=self.repository, tag=self.tag)
         if not image or self.force:
             try:
                 self.log("tagging {0} to {1} with tag {2}".format(self.name, self.repository, self.tag))
+                self.results['changed'] = True
                 if not self.check_mode:
+                    self.results['actions'].append("Tagged image {0} to {1}:{2}".format(self.name,
+                                                                                        self.repository,
+                                                                                        self.tag))
                     tag_status = self.client.tag(self.name, self.repository, tag=self.tag, force=self.force)
                     if not tag_status:
                         raise Exception("Tag operation failed.")
-                self.results['changed'] = True
-                self.results['actions'].append("Tagged image {0} to {1}:{2}".format(self.name,
-                                                                                    self.repository,
-                                                                                    self.tag))
                 image = self.client.find_image(name=self.repository, tag=self.tag)
                 if image:
                     self.results['results'] = image
@@ -435,21 +417,21 @@ def main():
         archive_path=dict(type='str'),
         config_path=dict(type='str'),
         container_limits=dict(type='dict'),
-        debug_file=dict(type='str', default='docker_image.log'),
         dockerfile=dict(type='str'),
         force=dict(type='bool', default=False),
         http_timeout=dict(type='int'),
         load_path=dict(type='str'),
         name=dict(type='str', required=True),
         nocache=dict(type='str', default=False),
-        path=dict(type='str'),
+        path=dict(type='str', aliases=['build_path']),
         pull=dict(type='bool', default=True),
         push=dict(type='bool', default=False),
         repository=dict(type='str'),
         rm=dict(type='bool', default=True),
         state=dict(type='str', choices=['absent', 'present', 'tagged'], default='present'),
         tag=dict(type='str', default='latest'),
-    )
+        log_file=dict(type='str', default='docker_image.log'),
+        )
 
     required_if = [
         ('state', 'tagged', ['repository', 'tag'])
@@ -467,9 +449,6 @@ def main():
         actions=[],
         results={}
     )
-
-    if client.module.params.get('debug'):
-        logging.basicConfig(filename=client.module.params.get('debug_file'), level=logging.DEBUG)
 
     ImageManager(client, results)
     client.module.exit_json(**results)

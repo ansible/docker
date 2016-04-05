@@ -960,7 +960,7 @@ def main():
         volumes=dict(type='list'),
         volumes_from=dict(type='list'),
         volume_driver=dict(type='str'),
-        debug_file=dict(type='str', default='docker_container.log')
+        log_path=dict(type='str', default='docker_container.log')
     )
 
     required_if = [
@@ -979,9 +979,6 @@ def main():
         actions=[],
         results={}
     )
-
-    if client.module.params.get('debug'):
-        logging.basicConfig(filename=client.module.params.get('debug_file'), level=logging.DEBUG)
 
     ContainerManager(client, results)
     client.module.exit_json(**results)

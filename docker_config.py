@@ -194,9 +194,6 @@ def main():
         results={}
     )
 
-    if module.params.get('debug'):
-        logging.basicConfig(filename=module.params.get('debug_file'), level=logging.DEBUG)
-
     ConfigManager(module, results)
     module.exit_json(**results)
 

@@ -21,9 +21,11 @@ import os
 import logging
 import re
 import json
+import sys
 
 from requests.exceptions import SSLError
 from urlparse import urlparse
+from logging import Handler, NOTSET
 
 HAS_DOCKER_PY = True
 
@@ -52,7 +54,9 @@ DOCKER_COMMON_ARGS = dict(
     tls=dict(type='bool'),
     tls_verify=dict(type='bool'),
     debug=dict(type='bool', default=False),
-    debug_file=dict(type='str')
+    filter_logger=dict(type='bool', default=True),
+    log_path=dict(type='str'),
+    log_mode=dict(type='str', choices=['stderr', 'file', 'syslog'], default='file'),
 )
 
 DOCKER_MUTUALLY_EXCLUSIVE = [
@@ -111,6 +115,17 @@ class DockerBaseClass(object):
             self._logger.debug(msg)
 
 
+class DockerSysLogHandler(Handler):
+
+    def __init__(self, level=NOTSET, module=None):
+        self.module = module
+        super(DockerSysLogHandler, self).__init__(level)
+
+    def emit(self, record):
+        log_entry = self.format(record)
+        self.module.debug(log_entry)
+
+
 class AnsibleDockerClient(Client):
 
     def __init__(self, argument_spec=None, supports_check_mode=False, mutually_exclusive=None,
@@ -143,6 +158,22 @@ class AnsibleDockerClient(Client):
 
         if not HAS_DOCKER_PY:
             self.fail("Failed to import docker-py. Try `pip install docker-py`")
+
+        self.log_mode = self.module.params.get('log_mode')
+        self.filter_logger = self.module_params.get('filter_logger')
+        if self.log_mode == 'syslog':
+            handler = DockerSysLogHandler(level=logging.DEBUG, module=self.module)
+            self.logger.addHandler(handler)
+            logging.basicConfig(level=logging.DEBUG)
+        elif self.log_mode == 'file':
+            self.log_path = self.module.params.get('log_path')
+            logging.basicConfig(level=logging.DEBUG, filename=self.log_path)
+        elif self.log_mode == 'stderr':
+            logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
+
+        if self.filter_logger:
+            for h in logging.root.handlers:
+                h.addFilter(logging.Filter(name=self.logger.name))
 
         self.check_mode = self.module.check_mode   
         self._connect_params = self._get_connect_params()
