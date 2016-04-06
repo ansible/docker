@@ -26,12 +26,13 @@ import sys
 from requests.exceptions import SSLError
 from urlparse import urlparse
 from logging import Handler, NOTSET
+from ansible.module_utils.basic import *
 
 HAS_DOCKER_PY = True
 
 try:
     from docker import Client
-    from docker.errors import APIError, TLSParameterError
+    from docker.errors import APIError, TLSParameterError, NotFound
     from docker.tls import TLSConfig
     from docker.constants import DEFAULT_TIMEOUT_SECONDS, DEFAULT_DOCKER_API_VERSION
     from docker.utils.types import Ulimit, LogConfig
@@ -54,7 +55,7 @@ DOCKER_COMMON_ARGS = dict(
     tls=dict(type='bool'),
     tls_verify=dict(type='bool'),
     debug=dict(type='bool', default=False),
-    filter_logger=dict(type='bool', default=True),
+    filter_logger=dict(type='bool', default=False),
     log_path=dict(type='str'),
     log_mode=dict(type='str', choices=['stderr', 'file', 'syslog'], default='file'),
 )
@@ -106,13 +107,13 @@ def human_to_bytes(number):
 class DockerBaseClass(object):
 
     def __init__(self):
-        self._logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def log(self, msg, pretty_print=False):
         if pretty_print:
-            self._logger.debug(json.dumps(msg, sort_keys=True, indent=4, separators=(',', ': ')))
+            self.logger.debug(json.dumps(msg, sort_keys=True, indent=4, separators=(',', ': ')))
         else:
-            self._logger.debug(msg)
+            self.logger.debug(msg)
 
 
 class DockerSysLogHandler(Handler):
@@ -362,13 +363,6 @@ class AnsibleDockerClient(Client):
             self.fail(msg)
         self.fail("SSL Exception: {0}".format(error))
 
-    def _raise_for_status(self, response, explanation=None):
-        """Raises stored :class:`APIError`, if one occurred."""
-        try:
-            response.raise_for_status()
-        except Exception, exc:
-            self.fail(str(exc))
-
     def get_container(self, name=None):
         '''
         Lookup a container and return the inspection results.
@@ -400,7 +394,9 @@ class AnsibleDockerClient(Client):
 
         if result is not None:
             try:
+                self.log("Inspecting container Id {0}".format(result['Id']))
                 result = self.inspect_container(container=result['Id'])
+                self.log("Completed container inspection")
             except Exception, exc:
                 self.fail("Error inspecting container: {0}".format(exc))
 

@@ -19,7 +19,7 @@
 
 import logging
 
-from ansible.module_utils.docker import *
+from ansible.module_utils.docker_common import *
 
 try:
     from docker import auth

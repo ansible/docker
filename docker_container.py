@@ -19,7 +19,7 @@
 
 import logging
 
-from ansible.module_utils.docker import *
+from ansible.module_utils.docker_common import *
 
 try:
     from docker import auth
@@ -112,7 +112,7 @@ class TaskParameters(DockerBaseClass):
             setattr(self, key, client.module_params[key])
 
         for param_name in REQUIRES_CONVERSION_TO_BYTES:
-            if client.module.params.get(param_name) is not None:
+            if client.module.params.get(param_name):
                 try:
                     setattr(self, param_name, human_to_bytes(client.module.params.get(param_name)))
                 except ValueError, exc:
@@ -379,15 +379,15 @@ class Container(DockerBaseClass):
                 return True
         return False
 
-    def has_different_configuration(self):
+    def has_different_configuration(self, image):
         '''
         Diff parameters and existing container config. Returns tuple: (True | False, List of differences)
         '''
 
         self.parameters.expected_links = self._get_expected_links()
         self.parameters.expected_ports = self._get_expected_ports()
-        self.parameters.expected_exposed = self._get_expected_exposed()
-        self.parameters.expected_volumes = self._get_expected_volumes()
+        self.parameters.expected_exposed = self._get_expected_exposed(image)
+        self.parameters.expected_volumes = self._get_expected_volumes(image)
         self.parameters.expected_ulimits = self._get_expected_ulimits(self.parameters.ulimits)
         self.parameters.expected_etc_hosts = self._convert_simple_dict_to_list('etc_hosts')
         self.parameters.expected_env = self._convert_simple_dict_to_list('env', '=')
@@ -427,7 +427,7 @@ class Container(DockerBaseClass):
             expected_env=config.get('Env'),
             enrtypoint=host_config.get('Entrypoint'),
             expected_etc_hosts=host_config['ExtraHosts'],
-            expected_exposed=config.get('ExposedPorts'),
+            expected_exposed=[re.sub(r'/.+$', '', p) for p in config.get('ExposedPorts', dict()).keys()],
             groups=host_config.get('GroupAdd'),
             ipc_mode=host_config.get("IpcMode"),
             labels=config.get('Labels'),
@@ -444,7 +444,7 @@ class Container(DockerBaseClass):
             read_only=host_config.get('ReadonlyRootfs'),
             restart_policy=restart_policy.get('Name'),
             restart_retries=restart_policy.get('MaximumRetryCount'),
-            # Cannot test shm_size, as shm_size is not incuded in container inspection results.
+            # Cannot test shm_size, as shm_size is not included in container inspection results.
             # shm_size=host_config.get('ShmSize'),
             security_opts=host_config.get("SecuriytOpt"),
             stop_signal=config.get("StopSignal"),
@@ -632,9 +632,12 @@ class Container(DockerBaseClass):
             exp_links.append("/{0}:{1}/{2}".format(link, ('/' + self.parameters.name), alias))
         return exp_links
 
-    def _get_expected_volumes(self):
+    def _get_expected_volumes(self, image):
         if self.parameters.volumes is None:
             return None
+
+        # TODO account for image volumes
+
         expected_binds = []
         for host_path, config in self.parameters.volumes.iteritems():
             if isinstance(config, dict):
@@ -646,13 +649,18 @@ class Container(DockerBaseClass):
             expected_binds.append("{0}:{1}:{2}".format(host_path, container_path, mode))
         return expected_binds
 
-    def _get_expected_exposed(self):
+    def _get_expected_exposed(self, image):
         if self.parameters.exposed_ports is None:
             return None
+
         ports = []
-        for p in self.parameters.exposed_ports:
-            ports.append("/".join(p))
-        return ports
+        if image:
+            for p in (image['ContainerConfig'].get('ExposedPorts') or {}).keys():
+                ports.append(re.sub(r'/.+$', '', p))
+        param_ports = self.parameters.exposed_ports
+        if not isinstance(self.parameters.exposed_ports, list):
+            param_ports = [self.parameters.exposed_ports]
+        return list(set(ports + param_ports))
 
     def _get_expected_ulimits(self, config_ulimits):
         if config_ulimits is None:
@@ -688,7 +696,9 @@ class ContainerManager(DockerBaseClass):
     '''
 
     def __init__(self, client, results):
+
         super(ContainerManager, self).__init__()
+
         self.client = client
         self.results = results
         self.parameters = TaskParameters(client)
@@ -705,6 +715,7 @@ class ContainerManager(DockerBaseClass):
         image = self._get_image()
 
         if not container.found:
+            self.log('No container found')
             # New container
             new_container = self.container_create(self.parameters.create_parameters)
             if new_container:
@@ -718,7 +729,7 @@ class ContainerManager(DockerBaseClass):
 
         # Existing container
         self.log(container.raw, pretty_print=True)
-        different, differences = container.has_different_configuration()
+        different, differences = container.has_different_configuration(image)
         image_different = self._image_is_different(image, container)
         if image_different:
             self.results['image_different'] = True
@@ -763,8 +774,9 @@ class ContainerManager(DockerBaseClass):
 
     def _get_image(self):
         if not self.parameters.image:
+            self.log('No image specified')
             return None
-
+        self.log("Fetch image {0}".format(self.parameters.image))
         repository, tag = utils.parse_repository_tag(self.parameters.image)
         registry, repo_name = auth.resolve_repository_name(repository)
         if registry:
@@ -775,6 +787,7 @@ class ContainerManager(DockerBaseClass):
         image = self.client.find_image(repository, tag)
         if not image or self.parameters.pull:
             if not self.check_mode:
+                self.log("Pull the image.")
                 image = self.client.pull_image(repository, tag)
                 self.results['actions'].append("Pulled image {0}:{1}".format(repository, tag))
                 self.results['changed'] = True
