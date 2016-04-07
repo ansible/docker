@@ -160,19 +160,19 @@ class AnsibleDockerClient(Client):
         if not HAS_DOCKER_PY:
             self.fail("Failed to import docker-py. Try `pip install docker-py`")
 
-        self.log_mode = self.module.params.get('log_mode')
-        self.filter_logger = self.module_params.get('filter_logger')
-        if self.log_mode == 'syslog':
+        log_mode = self.module.params.get('log_mode')
+        filter_logger = self.module.params.get('filter_logger')
+        if log_mode == 'syslog':
             handler = DockerSysLogHandler(level=logging.DEBUG, module=self.module)
             self.logger.addHandler(handler)
             logging.basicConfig(level=logging.DEBUG)
-        elif self.log_mode == 'file':
+        elif log_mode == 'file':
             self.log_path = self.module.params.get('log_path')
             logging.basicConfig(level=logging.DEBUG, filename=self.log_path)
-        elif self.log_mode == 'stderr':
+        elif log_mode == 'stderr':
             logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
 
-        if self.filter_logger:
+        if filter_logger:
             for h in logging.root.handlers:
                 h.addFilter(logging.Filter(name=self.logger.name))
 
@@ -185,13 +185,6 @@ class AnsibleDockerClient(Client):
             self.fail("Docker API error: {0}".format(exc))
         except Exception, exc:
             self.fail("Error connecting: {0}".format(exc))
-
-    @property
-    def module_params(self):
-        request = dict()
-        for key in self.arg_spec:
-            request[key] = self.module.params.get(key)
-        return request
 
     def log(self, msg, pretty_print=False):
         if pretty_print:

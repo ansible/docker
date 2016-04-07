@@ -24,6 +24,7 @@ from ansible.module_utils.docker_common import *
 try:
     from docker import auth
     from docker import utils
+    from docker.utils.types import Ulimit
 except:
     # missing docker-py handled in ansible.module_utils.docker
     pass
@@ -60,7 +61,7 @@ class TaskParameters(DockerBaseClass):
         self.dns_opts = None
         self.dns_search_domains = None
         self.env = None
-        self.enrtypoint = None
+        self.entrypoint = None
         self.etc_hosts = None
         self.exposed_ports = None
         self.force_kill = None
@@ -108,8 +109,8 @@ class TaskParameters(DockerBaseClass):
         self.debug = None
         self.debug_file = None
 
-        for key in client.module_params:
-            setattr(self, key, client.module_params[key])
+        for key, value in client.module.params.iteritems():
+            setattr(self, key, value)
 
         for param_name in REQUIRES_CONVERSION_TO_BYTES:
             if client.module.params.get(param_name):
@@ -381,16 +382,20 @@ class Container(DockerBaseClass):
 
     def has_different_configuration(self, image):
         '''
-        Diff parameters and existing container config. Returns tuple: (True | False, List of differences)
+        Diff parameters vs existing container config. Returns tuple: (True | False, List of differences)
         '''
-
+        self.log('Starting has_different_configuration')
+        self.parameters.expected_entrypoint = self._get_expected_entrypoint(image)
         self.parameters.expected_links = self._get_expected_links()
         self.parameters.expected_ports = self._get_expected_ports()
         self.parameters.expected_exposed = self._get_expected_exposed(image)
         self.parameters.expected_volumes = self._get_expected_volumes(image)
         self.parameters.expected_ulimits = self._get_expected_ulimits(self.parameters.ulimits)
         self.parameters.expected_etc_hosts = self._convert_simple_dict_to_list('etc_hosts')
-        self.parameters.expected_env = self._convert_simple_dict_to_list('env', '=')
+        self.parameters.expected_env = self._get_expected_env(image)
+        self.parameters.expected_cmd = self._get_expected_cmd()
+
+        self.log("here!!")
 
         if not self.container.get('HostConfig'):
             self.fail("has_config_diff: Error parsing container properties. HostConfig missing.")
@@ -414,7 +419,7 @@ class Container(DockerBaseClass):
         # Map parameters to container inspect results
         config_mapping = dict(
             image=config.get('Image'),
-            command=config.get('Cmd'),
+            expected_cmd=config.get('Cmd'),
             hostname=config.get('Hostname'),
             user=config.get('User'),
             detaached=detached,
@@ -425,7 +430,7 @@ class Container(DockerBaseClass):
             dns_opts=host_config.get('DnsOptions'),
             dns_search_domains=host_config.get('DnsSearch'),
             expected_env=config.get('Env'),
-            enrtypoint=host_config.get('Entrypoint'),
+            expected_enrtypoint=host_config.get('Entrypoint'),
             expected_etc_hosts=host_config['ExtraHosts'],
             expected_exposed=[re.sub(r'/.+$', '', p) for p in config.get('ExposedPorts', dict()).keys()],
             groups=host_config.get('GroupAdd'),
@@ -451,13 +456,14 @@ class Container(DockerBaseClass):
             tty=config.get('Tty'),
             expected_ulimits=host_config.get('Ulimits'),
             uts=host_config.get('UTSMode'),
-            expected_volumes=config.get('Volumes'),
+            expected_volumes=self._get_volumes_from_dict(config.get('Volumes')),
             volumes_from=host_config.get('VolumesFrom'),
             volume_driver=host_config.get('VolumeDriver')
         )
 
         differences = []
         for key, value in config_mapping.iteritems():
+            self.log('check differences {0}: {1}'.format(key, str(value)))
             if getattr(self.parameters, key, None) is not None:
                 if isinstance(getattr(self.parameters, key), list) and isinstance(value, list):
                     if len(getattr(self.parameters, key)) > 0 and isinstance(getattr(self.parameters, key)[0], dict):
@@ -605,6 +611,13 @@ class Container(DockerBaseClass):
             extra = True
         return extra, extra_networks
 
+    def _get_expected_entrypoint(self, image):
+        self.log('_get_expected_entrypoint')
+        entrypoint = (self.parameters.entrypoint or [])
+        if not isinstance(entrypoint, list):
+            entrypoint = [entrypoint]
+        return list(set(entrypoint + image['ContainerConfig'].get('Entrypoint', [])))
+
     def _get_expected_ports(self):
         if self.parameters.published_ports is None:
             return None
@@ -633,41 +646,47 @@ class Container(DockerBaseClass):
         return exp_links
 
     def _get_expected_volumes(self, image):
-        if self.parameters.volumes is None:
-            return None
+        self.log('_get_expected_volumes')
+        image_vols = self._get_volumes_from_dict(image['ContainerConfig'].get('Volumes'))
+        expected_vols = self._get_volumes_from_dict(self.parameters.volumes)
+        return list(set(image_vols + expected_vols))
 
-        # TODO account for image volumes
+    def _get_volumes_from_dict(self, volume_dict):
+        volumes = []
+        if volume_dict:
+            for host_path, config in volume_dict.iteritems():
+                if isinstance(config, dict) and len(config.keys()) > 0:
+                    container_path = config.get('bind')
+                    mode = config.get('mode')
+                else:
+                    container_path = config
+                    mode = 'rw'
+                volumes.append("{0}:{1}:{2}".format(host_path, container_path, mode))
+        return volumes
 
-        expected_binds = []
-        for host_path, config in self.parameters.volumes.iteritems():
-            if isinstance(config, dict):
-                container_path = config['bind']
-                mode = config['mode']
-            else:
-                container_path = config
-                mode = 'rw'
-            expected_binds.append("{0}:{1}:{2}".format(host_path, container_path, mode))
-        return expected_binds
+    def _get_expected_env(self, image):
+        self.log('_get_expected_env')
+        param_env = (self._convert_simple_dict_to_list('env', '=') or [])
+        image_env = image['ContainerConfig'].get('Env', [])
+        return list(set(param_env + image_env))
 
     def _get_expected_exposed(self, image):
-        if self.parameters.exposed_ports is None:
-            return None
-
-        ports = []
+        self.log('_get_expected_exposed')
+        image_ports = []
         if image:
-            for p in (image['ContainerConfig'].get('ExposedPorts') or {}).keys():
-                ports.append(re.sub(r'/.+$', '', p))
-        param_ports = self.parameters.exposed_ports
-        if not isinstance(self.parameters.exposed_ports, list):
-            param_ports = [self.parameters.exposed_ports]
-        return list(set(ports + param_ports))
+            image_ports = [re.sub(r'/.+$', '', p) for p in (image['ContainerConfig'].get('ExposedPorts') or {}).keys()]
+        param_ports = (self.parameters.exposed_ports or [])
+        if not isinstance(param_ports, list):
+            param_ports = [param_ports]
+        return list(set(image_ports + param_ports))
 
     def _get_expected_ulimits(self, config_ulimits):
+        self.log('_get_expected_ulimits')
         if config_ulimits is None:
             return None
 
         results = []
-        if isinstance(config_ulimits, Ulimit):
+        if isinstance(config_ulimits[0], Ulimit):
             for limit in config_ulimits:
                 if limit.hard:
                     results.append("{0}:{1}".format(limit.name, limit.soft, limit.hard))
@@ -680,6 +699,19 @@ class Container(DockerBaseClass):
                 else:
                     results.append("{0}:{1}".format(limit.get('name'), limit.get('soft')))
         return results
+
+    def _get_expected_cmd(self):
+        self.log('_get_expected_cmd')
+        if not self.parameters.command:
+            return None
+        expected_commands = []
+        commands = self.parameters.command
+        if not isinstance(commands, list):
+            commands = [commands]
+        for cmd in commands:
+            self.log(cmd)
+            expected_commands = expected_commands + shlex.split(cmd)
+        return expected_commands
 
     def _convert_simple_dict_to_list(self, param_name, join_with=':'):
         if getattr(self.parameters, param_name, None) is None:
@@ -924,7 +956,7 @@ def main():
         dns_opts=dict(type='list'),
         dns_search_domains=dict(type='list'),
         env=dict(type='dict'),
-        enrtypoint=dict(type='list'),
+        entrypoint=dict(type='list'),
         etc_hosts=dict(type='dict'),
         exposed_ports=dict(type='list', aliases=['exposed']),
         force_kill=dict(type='bool', default=False),
