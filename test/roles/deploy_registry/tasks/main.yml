@@ -1,0 +1,57 @@
+- name: Disable selinux
+  selinux: state=disabled
+
+- name: Install packages
+  yum: name=wget
+
+- name: Install epel
+  yum: name=https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm state=present
+
+- name: System update
+  yum: name=* state=latest
+
+- name: Enable docker yum repo
+  copy: src=./roles/deploy_registry/files/docker.repo dest=/etc/yum.repos.d/docker.repo owner=root group=root mode=644
+
+- name: Install yum packages
+  yum: name="{{ item }}"
+  with_items:
+    - docker-engine
+    - python-pip
+    - iptables-services
+    - git
+
+- name: Install pip packages
+  pip: name="{{ item }}"
+  with_items:
+    - docker-py
+
+- name: Create web server root
+  file: path=/var/www/registry state=directory owner=root group=root mode=0755
+
+- name: Copy default index.html
+  copy: src=./roles/deploy_registry/files/index.html dest=/var/www/registry owner=root group=root mode=0644
+
+- name: Start Docker
+  service: name=docker state=started enabled=yes
+
+- name: Log into Docker Hub
+  docker_login:
+      username: "{{ docker_hub_username }}"
+      password: "{{ docker_hub_password }}"
+      email: house@redhat.com
+      debug: "{{ playbook_debug }}"
+
+- name: Start registry container
+  docker_container:
+      image: registry:2
+      name: registry
+      exposed: 5000
+      ports: 5000:5000
+      detach: yes
+      recreate: yes
+      keep_volumes: no  
+      debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output

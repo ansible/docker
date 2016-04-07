@@ -52,9 +52,6 @@ coverage.xml
 *.mo
 *.pot
 
-# Django stuff:
-*.log
-
 # Sphinx documentation
 docs/_build/
 
@@ -63,3 +60,7 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+
+*.log
+*.retry

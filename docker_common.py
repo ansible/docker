@@ -160,16 +160,17 @@ class AnsibleDockerClient(Client):
         if not HAS_DOCKER_PY:
             self.fail("Failed to import docker-py. Try `pip install docker-py`")
 
+        debug = self.module.params.get('debug')
         log_mode = self.module.params.get('log_mode')
         filter_logger = self.module.params.get('filter_logger')
-        if log_mode == 'syslog':
+        if debug and log_mode == 'syslog':
             handler = DockerSysLogHandler(level=logging.DEBUG, module=self.module)
             self.logger.addHandler(handler)
             logging.basicConfig(level=logging.DEBUG)
-        elif log_mode == 'file':
-            self.log_path = self.module.params.get('log_path')
-            logging.basicConfig(level=logging.DEBUG, filename=self.log_path)
-        elif log_mode == 'stderr':
+        elif debug and log_mode == 'file':
+            log_path = self.module.params.get('log_path')
+            logging.basicConfig(level=logging.DEBUG, filename=log_path)
+        elif debug and log_mode == 'stderr':
             logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
 
         if filter_logger:
@@ -407,10 +408,18 @@ class AnsibleDockerClient(Client):
             images = self.images(name=lookup)
         except Exception, exc:
             self.fail("Error getting image: {0}".format(str(exc)))
-        if len(images) == 1:
-            return self.inspect_image(images[0]['Id'])
+
         if len(images) > 1:
             self.fail("Registry returned more than one result for {0}".format(lookup))
+
+        if len(images) == 1:
+            try:
+                inspection = self.inspect_image(images[0]['Id'])
+            except Exception, exc:
+                self.fail("Error inspecting image {0} - {1}".format(lookup, str(exc)))
+            inspection['Name'] = lookup
+            return inspection
+
         return None
 
     def pull_image(self, name, tag="latest"):

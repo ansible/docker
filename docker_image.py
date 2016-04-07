@@ -17,14 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
 
 from ansible.module_utils.docker_common import *
 
 try:
     from docker import auth
     from docker import utils
-except:
+except ImportError:
     # missing docker-py handled in ansible.module_utils.docker
     pass
 
@@ -119,6 +118,7 @@ requirements:
   - "docker-py"
 
 authors:
+  - Chris Houseknecht (house@redhat.com)
 
 '''
 
@@ -159,7 +159,6 @@ EXAMPLES = '''
     name: registry.ansible.com/chouseknecht/sinatra
     tag: v1
     load_path: my_sinatra.tar
-
 '''
 
 
@@ -430,7 +429,7 @@ def main():
         rm=dict(type='bool', default=True),
         state=dict(type='str', choices=['absent', 'present', 'tagged'], default='present'),
         tag=dict(type='str', default='latest'),
-        log_file=dict(type='str', default='docker_image.log'),
+        log_path=dict(type='str', default='docker_image.log'),
         )
 
     required_if = [

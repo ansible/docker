@@ -1,0 +1,45 @@
+- name: Remove existing config
+  file:
+    path: ~/.docker/config.json
+    state: absent
+
+- name: Should fail on invalid email
+  docker_login:
+    username: chouseknecht
+    password: xnvDhTjSdcIB
+    email: foo
+    debug: "{{ playbook_debug }}"
+  register: output
+  ignore_errors: yes
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that:
+      - output.failed
+      - "'email' in output.msg"
+
+- name: Should log into Docker hub
+  docker_login:
+    username: chouseknecht
+    password: xnvDhTjSdcIB
+    email: house@redhat.com
+    debug: "{{ playbook_debug }}" 
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that:
+      - "'Succeeded' in output.results.Status"
+
+- name: Should have valid configuration file
+  docker_config:
+    username: chouseknecht
+    password: xnvDhTjSdcIB
+    email: house@redhat.com
+  register: output
+
+- debug: var=output

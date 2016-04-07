@@ -1,0 +1,24 @@
+- name: Check if certs exist
+  stat: path=/etc/letsencrypt/live/registry-testing.ansible.com
+  register: output
+
+- name: Generate TLS certs
+  command: /opt/letsencrypt/letsencrypt-auto certonly --webroot -w /var/www/registry -d registry-testing.ansible.com --non-interactive
+  when: not output.stat.exists
+
+- name: Check for TSL cert renewals
+  command: /opt/letsencrypt/letsencrypt-auto renew --non-interactive 
+  when: output.stat.exists
+
+- name: Update nginx config with SSL
+  template: src=./roles/secure_registry/templates/vhosts.j2 dest=/etc/nginx/conf.d/vhosts.conf owner=root group=root mode=0644
+
+- name: Restart nginx
+  service: name=nginx state=restarted enabled=yes
+
+- name: Test SSL
+  uri: url=https://registry-testing.ansible.com/v2/_catalog return_content=yes
+  register: output
+
+- assert:
+    that: output.json.repositories | length >= 0 
