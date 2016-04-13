@@ -19,7 +19,7 @@
 #
 
 
-from ansible.module_utils.docker import *
+from ansible.module_utils.docker_common import *
 
 import base64
 import json
