@@ -44,9 +44,9 @@ DEFAULT_TLS = False
 DEFAULT_TLS_VERIFY = False
 
 DOCKER_COMMON_ARGS = dict(
-    docker_host=dict(type="str"),
-    tls_hostname=dict(type="str"),
-    api_version=dict(type="str"),
+    docker_host=dict(type='str'),
+    tls_hostname=dict(type='str'),
+    api_version=dict(type='str'),
     timeout=dict(type='int'),
     cacert_path=dict(type='str'),
     cert_path=dict(type='str'),
