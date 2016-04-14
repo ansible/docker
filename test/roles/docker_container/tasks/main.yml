@@ -1,0 +1,22 @@
+- name: Remove ubuntu image
+  docker_image:
+    state: absent
+    name: ubuntu
+    tag: 14.04
+    force: yes
+  register: output
+
+- debug: var=output
+
+- name: Build container with missing image
+  docker_container:
+    name: ubuntu_14.04
+    image: ubuntu:14.04
+    command:
+      - "/usr/sbin/sshd"
+      - "-D"
+    privileged: yes
+    debug: yes
+  register: output
+
+- debug: var=output

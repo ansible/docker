@@ -1,0 +1,6 @@
+- name: Run docker_container tests
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  roles:
+    - { role: docker_container } 
