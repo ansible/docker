@@ -866,7 +866,7 @@ class ContainerManager(DockerBaseClass):
                 self.results['changed'] = True
                 return self._get_container(new_container['Id'])
             except Exception, exc:
-                self.fail("Error creating container {0}: {1}".format(container_id, str(exc)))
+                self.fail("Error creating container: {0}".format(str(exc)))
 
     def container_start(self, container_id):
         self.log("start container {0}".format(container_id))
