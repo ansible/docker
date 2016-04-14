@@ -867,7 +867,6 @@ class ContainerManager(DockerBaseClass):
                 return self._get_container(new_container['Id'])
             except Exception, exc:
                 self.fail("Error creating container {0}: {1}".format(container_id, str(exc)))
-        return None
 
     def container_start(self, container_id):
         self.log("start container {0}".format(container_id))
@@ -891,7 +890,6 @@ class ContainerManager(DockerBaseClass):
                 return response
             except Exception, exc:
                 self.fail("Error removing container {0}: {1}".format(container_id, str(exc)))
-        return None
 
     def container_update(self, container_id, update_parameters):
         if update_parameters:
