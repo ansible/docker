@@ -64,3 +64,4 @@ target/
 
 *.log
 *.retry
+*.swp
