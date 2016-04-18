@@ -84,6 +84,9 @@
 - debug: var=output
   when: playbook_debug
 
+- name: wait for nginx to start
+  local_action: wait_for port=80 host="{{ output['results']['NetworkSettings']['IPAddress'] }}" timeout=60
+
 - name: Verify the nginx container is listening on port 80
   get_url: 
     url: "{{ 'http://' + output['results']['NetworkSettings']['IPAddress'] }}"
