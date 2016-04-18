@@ -282,6 +282,8 @@ class TaskParameters(DockerBaseClass):
         '''
         Convert volumes parameter to host_config bind format.
 
+        https://docker-py.readthedocs.org/en/latest/volumes/
+
         :return: array of binds
         '''
         results = dict()
@@ -291,8 +293,8 @@ class TaskParameters(DockerBaseClass):
                     host, container, mode = vol.split(':')
                 else:
                     host, container, mode = vol.split(':') + ['rw']
-                results[container] = dict(
-                    bind=host,
+                results[host] = dict(
+                    bind=container,
                     mode=mode
                 )
         return results
