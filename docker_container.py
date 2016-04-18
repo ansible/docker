@@ -429,7 +429,7 @@ class Container(DockerBaseClass):
             dns_servers=host_config.get('Dns'),
             dns_opts=host_config.get('DnsOptions'),
             dns_search_domains=host_config.get('DnsSearch'),
-            expected_env=config.get('Env'),
+            expected_env=(config.get('Env') or []),
             expected_enrtypoint=host_config.get('Entrypoint'),
             expected_etc_hosts=host_config['ExtraHosts'],
             expected_exposed=[re.sub(r'/.+$', '', p) for p in config.get('ExposedPorts', dict()).keys()],
@@ -616,7 +616,9 @@ class Container(DockerBaseClass):
         entrypoint = (self.parameters.entrypoint or [])
         if not isinstance(entrypoint, list):
             entrypoint = [entrypoint]
-        return list(set(entrypoint + image['ContainerConfig'].get('Entrypoint', [])))
+        if image and image['ContainerConfig'].get('Entrypoint'):
+            entrypoint = list(set(entrypoint + image['ContainerConfig'].get('Entrypoint')))
+        return entrypoint
 
     def _get_expected_ports(self):
         if self.parameters.published_ports is None:
@@ -647,7 +649,9 @@ class Container(DockerBaseClass):
 
     def _get_expected_volumes(self, image):
         self.log('_get_expected_volumes')
-        image_vols = self._get_volumes_from_dict(image['ContainerConfig'].get('Volumes'))
+        image_vols = []
+        if image:
+            image_vols = self._get_volumes_from_dict(image['ContainerConfig'].get('Volumes'))
         expected_vols = self._get_volumes_from_dict(self.parameters.volumes)
         return list(set(image_vols + expected_vols))
 
@@ -667,8 +671,10 @@ class Container(DockerBaseClass):
     def _get_expected_env(self, image):
         self.log('_get_expected_env')
         param_env = (self._convert_simple_dict_to_list('env', '=') or [])
-        image_env = image['ContainerConfig'].get('Env', [])
-        return list(set(param_env + image_env))
+        if image and image['ContainerConfig'].get('Env'):
+            image_env = image['ContainerConfig'].get('Env')
+            param_env = list(set(param_env + image_env))
+        return param_env
 
     def _get_expected_exposed(self, image):
         self.log('_get_expected_exposed')
@@ -809,13 +815,15 @@ class ContainerManager(DockerBaseClass):
             self.log('No image specified')
             return None
         repository, tag = utils.parse_repository_tag(self.parameters.image)
+        if not tag:
+            tag = "latest"
         self.log("Fetch image: {0} tag: {1}".format(repository, tag))
         image = self.client.find_image(repository, tag)
         if not self.check_mode:
             if not image or self.parameters.pull:
                 self.log("Pull the image.")
                 image = self.client.pull_image(repository, tag)
-                self.results['actions'].append("Pulled image {0}:{1}".format(repository, tag))
+                self.results['actions'].append(dict(pulled_image="{0}:{1}".format(repository, tag)))
                 self.results['changed'] = True
         self.log("image")
         self.log(image, pretty_print=True)

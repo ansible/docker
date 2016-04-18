@@ -403,6 +403,7 @@ class AnsibleDockerClient(Client):
             return None
 
         lookup = "{0}:{1}".format(name, tag)
+        self.log("find_image: {0}".format(lookup))
         try:
             images = self.images(name=lookup)
         except Exception, exc:
