@@ -142,7 +142,7 @@ EXAMPLES = '''
     name: registry.ansible.com/chouseknecht/sinatra
     tag: v1
 
-- name: Build an image and archive it
+- name: Build an image
   docker_image:
     path: ./sinatra
     name: registry.ansible.com/chouseknecht/sinatra
