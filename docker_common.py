@@ -21,6 +21,7 @@ import logging
 import re
 import json
 import sys
+import copy
 
 from requests.exceptions import SSLError
 from urlparse import urlparse
@@ -55,8 +56,8 @@ DOCKER_COMMON_ARGS = dict(
     tls_verify=dict(type='bool'),
     debug=dict(type='bool', default=False),
     filter_logger=dict(type='bool', default=False),
-    log_path=dict(type='str'),
-    log_mode=dict(type='str', choices=['stderr', 'file', 'syslog'], default='file'),
+    log_path=dict(type='str', default='docker.log'),
+    log_mode=dict(type='str', choices=['stderr', 'file', 'syslog'], default='syslog'),
 )
 
 DOCKER_MUTUALLY_EXCLUSIVE = [
@@ -103,16 +104,60 @@ def human_to_bytes(number):
                                                                                    ','.join(BYTE_SUFFIXES)))
 
 
+def log_msg(data, pretty_print=False):
+    '''
+    Sanitize data to be logged, and if requested, attempt to pretty print JSON.
+
+    :param data: string to dumped to the log
+    :param pretty_print: bool
+    :return: None
+    '''
+    out = None
+    if data:
+        if isinstance(data, dict):
+            sanitized = copy.deepcopy(data)
+            sanitize_dict(sanitized)
+        elif isinstance(data, list):
+            sanitized = copy.deepcopy(data)
+            sanitize_list(sanitized)
+        else:
+            sanitized = heuristic_log_sanitize(data)
+        out = sanitized
+        if pretty_print:
+            # Attempt formatting JSON. The sanitizing may have broken things.
+            try:
+                out = json.dumps(sanitized, sort_keys=True, indent=4, separators=(',', ': '))
+            except:
+                out = sanitized
+    return out
+
+
+def sanitize_dict(data):
+    for key, value in data.items():
+        if isinstance(value, basestring):
+            data[key] = heuristic_log_sanitize(value)
+        if isinstance(value, dict):
+            sanitize_dict(value)
+        if isinstance(value, list):
+            sanitize_list(value)
+
+
+def sanitize_list(data):
+    for item in data:
+        if isinstance(item, basestring):
+            item = heuristic_log_sanitize(item)
+        if isinstance(item, list):
+            sanitize_list(item)
+        if isinstance(item, dict):
+            sanitize_dict(item)
+
 class DockerBaseClass(object):
 
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def log(self, msg, pretty_print=False):
-        if pretty_print:
-            self.logger.debug(json.dumps(msg, sort_keys=True, indent=4, separators=(',', ': ')))
-        else:
-            self.logger.debug(msg)
+        self.logger.debug(log_msg(msg, pretty_print=pretty_print))
 
 
 class DockerSysLogHandler(Handler):
@@ -187,10 +232,7 @@ class AnsibleDockerClient(Client):
             self.fail("Error connecting: {0}".format(exc))
 
     def log(self, msg, pretty_print=False):
-        if pretty_print:
-            self.logger.debug(json.dumps(msg, sort_keys=True, indent=4, separators=(',', ': ')))
-        else:
-            self.logger.debug(msg)
+        self.logger.debug(log_msg(msg, pretty_print=pretty_print))
     
     def fail(self, msg):
         self.module.fail_json(msg=msg)
@@ -402,8 +444,11 @@ class AnsibleDockerClient(Client):
         if not name:
             return None
 
-        lookup = "{0}:{1}".format(name, tag)
-        self.log("find_image: {0}".format(lookup))
+        lookup = name
+        if tag:
+            lookup = "{0}:{1}".format(name, tag)
+
+        self.log("Find image {0}".format(lookup))
         try:
             images = self.images(name=lookup)
         except Exception, exc:
@@ -419,7 +464,7 @@ class AnsibleDockerClient(Client):
                 self.fail("Error inspecting image {0} - {1}".format(lookup, str(exc)))
             inspection['Name'] = lookup
             return inspection
-
+        self.log("Image {0} not found.".format(lookup))
         return None
 
     def pull_image(self, name, tag="latest"):

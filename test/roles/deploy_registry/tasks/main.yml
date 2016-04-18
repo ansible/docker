@@ -41,6 +41,7 @@
       password: "{{ docker_hub_password }}"
       email: house@redhat.com
       debug: "{{ playbook_debug }}"
+      log_mode: "{{ playbook_debug_mode }}"
 
 - name: Start registry container
   docker_container:
@@ -52,6 +53,7 @@
       recreate: yes
       keep_volumes: no  
       debug: "{{ playbook_debug }}"
+      log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output

@@ -38,11 +38,10 @@ description:
 options:
   name:
     description:
-      - Image name. Name format will be name:tag or repository/name:tag, where tag is optional. If a tag is not
-        provided, 'latest' will be used.
+      - An image name or a list of image names. Name format will be name:tag or repository/name:tag, where tag is
+        optional. If a tag is not provided, 'latest' will be used.
     default: null
     required: true
-
 
 requirements:
   - "python >= 2.6"
@@ -66,11 +65,18 @@ EXAMPLES = '''
       - sinatra
 '''
 
-RETURNS = '''
-{
-    "changed": false,
-    "check_mode": false,
-    "results": [
+RETURN = '''
+changed:
+    description:
+      - Whether or not a change was made. Will always be false.
+    returned: always
+    type: bool
+    sample: False
+Results:
+    description: Facts about the current state of the object.
+    returned: always
+    type: dict
+    sample:[
         {
             "Architecture": "amd64",
             "Author": "",
@@ -156,7 +162,6 @@ RETURNS = '''
             "VirtualSize": 165808884
         }
     ]
-}
 '''
 
 
@@ -203,7 +208,6 @@ class ImageManager(DockerBaseClass):
 def main():
     argument_spec = dict(
         name=dict(type='list', required=True),
-        log_path=dict(type='str', default='docker_image_facts.log'),
         )
 
     client = AnsibleDockerClient(
@@ -212,7 +216,6 @@ def main():
 
     results = dict(
         changed=False,
-        check_mode=False,
         results=dict()
     )
 

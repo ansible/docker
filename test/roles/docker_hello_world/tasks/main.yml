@@ -21,7 +21,8 @@
   docker_container:
     name: hello-world
     image: hello-world
-    debug: yes
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -37,7 +38,8 @@
   docker_container:
     name: hello-world
     image: hello-world
-    debug: yes
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output

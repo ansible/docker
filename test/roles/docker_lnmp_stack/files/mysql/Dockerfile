@@ -1,7 +1,6 @@
 # MySQL
 
 FROM ubuntu:14.04
-MAINTAINER @chouseknecht 
 
 # Disable any prompts for apt-get
 ENV DEBIAN_FRONTEND noninteractive

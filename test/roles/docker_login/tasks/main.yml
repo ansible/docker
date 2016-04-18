@@ -9,6 +9,7 @@
     password: xnvDhTjSdcIB
     email: foo
     debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
   ignore_errors: yes
 
@@ -25,7 +26,8 @@
     username: chouseknecht
     password: xnvDhTjSdcIB
     email: house@redhat.com
-    debug: "{{ playbook_debug }}" 
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output

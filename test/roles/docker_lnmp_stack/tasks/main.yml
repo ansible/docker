@@ -1,8 +1,84 @@
+- name: Do the lnmp images exist
+  docker_image_facts:
+    name:
+      - lnmp_mysql:v1
+      - lnmp_nginx:v1
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
+  register: image_facts
+
+- debug: var=image_facts
+  when: playbook_debug
+
 - name: Build the mysql image
   docker_image:
     path: ./roles/docker_lnmp_stack/files/mysql
-    name: mysql
+    name: lnmp_mysql
     tag: v1
+  register: output
 
+- debug: var=output
+  when: playbook_debug
 
-      
+- assert:
+    that: not output.changed
+  when: image_facts.results | length == 2
+
+- name: Build the nginx image
+  docker_image:
+    path: ./roles/docker_lnmp_stack/files/nginx
+    name: lnmp_nginx
+    tag: v1
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that: not output.changed
+  when: image_facts.results | length == 2
+
+- name: Create data volume
+  file: path=/tmp/lnmp/mysql-data state=directory
+
+- name: Start mysql container
+  docker_container:
+    name: lnmp_mysql
+    detach: yes
+    volumes:
+      - /tmp/lnmp/mysql-data:/var/lib/mysql
+    image: lnmp_mysql:v1
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- name: Create nginx volumes
+  file: path="{{ item }}" state=directory
+  with_items:
+    - /tmp/lnmp/www
+    - /tmp/lnmp/nginx-sites/logs
+    - /tmp/lnmp/nginx-sites/sites-available
+    - /tmp/lnmp/nginx-sites/sites-enabled
+
+- name: Create nginx container
+  docker_container:
+    name: lnmp_nginx
+    image: lnmp_nginx:v1
+    ports:
+      - 0.0.0.0:80:80
+    volumes:
+      - /tmp/lnmp/nginx-sites/sites-enabled/:/etc/nginx/sites-enabled
+      - /tmp/lnmp/nginx-sites/sites-available/:/etc/nginx/sites-available
+      - /tmp/lnmp/nginx-sites/logs/:/var/log/nginx
+      - /tmp/lnmp/www/:/home/www
+    links:
+      - lnmp_mysql:lnmp_mysql
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
