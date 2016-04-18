@@ -437,7 +437,7 @@ class Container(DockerBaseClass):
         restart_policy = host_config.get('RestartPolicy', dict())
         config = self.container['Config']
         network = self.container['NetworkSettings']
-        detached = (config.get('AttachStderr') and config.get('AttachStdout'))
+        detach = (config.get('AttachStderr') and config.get('AttachStdout'))
         host_config['Ulimits'] = self._get_expected_ulimits(host_config['Ulimits'])
 
         self.log("command")
@@ -450,7 +450,7 @@ class Container(DockerBaseClass):
             expected_cmd=config.get('Cmd'),
             hostname=config.get('Hostname'),
             user=config.get('User'),
-            detaached=detached,
+            detach=detach,
             interactive=config.get('OpenStdin'),
             capabilities=host_config.get('CapAdd'),
             devices=host_config.get('Devices'),
@@ -458,7 +458,7 @@ class Container(DockerBaseClass):
             dns_opts=host_config.get('DnsOptions'),
             dns_search_domains=host_config.get('DnsSearch'),
             expected_env=(config.get('Env') or []),
-            expected_enrtypoint=host_config.get('Entrypoint'),
+            expected_entrypoint=host_config.get('Entrypoint'),
             expected_etc_hosts=host_config['ExtraHosts'],
             expected_exposed=[re.sub(r'/.+$', '', p) for p in config.get('ExposedPorts', dict()).keys()],
             groups=host_config.get('GroupAdd'),
@@ -491,7 +491,7 @@ class Container(DockerBaseClass):
 
         differences = []
         for key, value in config_mapping.iteritems():
-            self.log('check differences {0}: {1}'.format(key, str(value)))
+            self.log('check differences {0} {1} vs {2}'.format(key, getattr(self.parameters, key), str(value)))
             if getattr(self.parameters, key, None) is not None:
                 if isinstance(getattr(self.parameters, key), list) and isinstance(value, list):
                     if len(getattr(self.parameters, key)) > 0 and isinstance(getattr(self.parameters, key)[0], dict):
@@ -548,16 +548,16 @@ class Container(DockerBaseClass):
             return False
         for key, value in dict_a.iteritems():
             if isinstance(value, dict):
-                match = self._compare_dicts(value, dict_b[key])
+                match = self._compare_dicts(value, dict_b.get(key))
             elif isinstance(value, list):
                 if len(value) > 0 and isinstance(value[0], dict):
-                    match = self._compare_dictionary_lists(value, dict_b[key])
+                    match = self._compare_dictionary_lists(value, dict_b.get(key))
                 else:
                     set_a = set(value)
-                    set_b = set(dict_b[key])
+                    set_b = set(dict_b.get(key))
                     match = (set_a == set_b)
             else:
-                match = (value == dict_b[key])
+                match = (value == dict_b.get(key))
             if not match:
                 return False
         return True
