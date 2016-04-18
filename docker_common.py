@@ -1,6 +1,5 @@
-#!/usr/bin/python
 #
-# Copyright 2016 Red Hat | Ansible
+#  Copyright 2016 Red Hat | Ansible
 #
 # This file is part of Ansible
 #

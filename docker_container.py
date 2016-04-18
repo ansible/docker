@@ -808,17 +808,11 @@ class ContainerManager(DockerBaseClass):
         if not self.parameters.image:
             self.log('No image specified')
             return None
-        self.log("Fetch image {0}".format(self.parameters.image))
         repository, tag = utils.parse_repository_tag(self.parameters.image)
-        registry, repo_name = auth.resolve_repository_name(repository)
-        if registry:
-            config = auth.load_config()
-            if not auth.resolve_authconfig(config, registry):
-                self.fail("Error: configuration for {0} not found. Try logging into {0} first.".format(registry))
-
+        self.log("Fetch image: {0} tag: {1}".format(repository, tag))
         image = self.client.find_image(repository, tag)
-        if not image or self.parameters.pull:
-            if not self.check_mode:
+        if not self.check_mode:
+            if not image or self.parameters.pull:
                 self.log("Pull the image.")
                 image = self.client.pull_image(repository, tag)
                 self.results['actions'].append("Pulled image {0}:{1}".format(repository, tag))
