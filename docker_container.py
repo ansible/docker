@@ -437,8 +437,11 @@ class Container(DockerBaseClass):
         restart_policy = host_config.get('RestartPolicy', dict())
         config = self.container['Config']
         network = self.container['NetworkSettings']
-        detach = (config.get('AttachStderr') and config.get('AttachStdout'))
         host_config['Ulimits'] = self._get_expected_ulimits(host_config['Ulimits'])
+
+        # The previous version of the docker module ignored the detach state by
+        # assuming if the container was running, it must have detached.
+        detach = not (config.get('AttachStderr') and config.get('AttachStdout'))
 
         self.log("command")
         self.log(self.parameters.command, pretty_print=True)
@@ -641,9 +644,7 @@ class Container(DockerBaseClass):
 
     def _get_expected_entrypoint(self, image):
         self.log('_get_expected_entrypoint')
-        entrypoint = (self.parameters.entrypoint or [])
-        if not isinstance(entrypoint, list):
-            entrypoint = [entrypoint]
+        entrypoint = (self.parameters.entrypoint)
         if image and image['ContainerConfig'].get('Entrypoint'):
             entrypoint = list(set(entrypoint + image['ContainerConfig'].get('Entrypoint')))
         return entrypoint
