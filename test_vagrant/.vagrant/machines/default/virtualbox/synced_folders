@@ -1,1 +1,0 @@
-{"rsync":{"/home/vagrant/sync":{"type":"rsync","guestpath":"/home/vagrant/sync","hostpath":"/Users/chouseknecht/projects/docker_modules/test_vagrant","disabled":false,"__vagrantfile":true,"owner":"vagrant","group":"vagrant"}}}
