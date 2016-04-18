@@ -1,4 +1,4 @@
 ---
-run_test: image 
+run_test: all 
 playbook_debug: yes 
 deploy_registry: no

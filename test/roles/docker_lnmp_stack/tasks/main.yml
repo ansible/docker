@@ -1,0 +1,8 @@
+- name: Build the mysql image
+  docker_image:
+    path: ./roles/docker_lnmp_stack/files/mysql
+    name: mysql
+    tag: v1
+
+
+      
