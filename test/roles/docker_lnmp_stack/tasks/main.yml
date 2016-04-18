@@ -58,6 +58,7 @@
 - name: Create nginx volumes
   file: path="{{ item }}" state=directory
   with_items:
+    - /tmp/lnmp/temp
     - /tmp/lnmp/www
     - /tmp/lnmp/nginx-sites/logs
     - /tmp/lnmp/nginx-sites/sites-available
@@ -82,3 +83,15 @@
 
 - debug: var=output
   when: playbook_debug
+
+- name: Verify the nginx container is listening on port 80
+  get_url: 
+    url: "{{ 'http://' + output['results']['NetworkSettings']['IPAddress'] }}"
+    dest: /tmp/lnmp/temp/index.html
+    force: yes
+  changed_when: false
+  register: html  
+
+- debug: var=html
+  when: playbook_debug
+ 
