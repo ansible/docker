@@ -260,7 +260,6 @@ def main():
         reauthorize=dict(type='bool', default=False, aliases=['reauth']),
         config_path=dict(type='str', default='~/.docker/config.json', aliases=['self.config_path',
                                                                                'dockercfg_path']),
-        log_path=dict(type='str', default='docker_login.log')
     )
 
     required_if = [

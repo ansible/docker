@@ -4,6 +4,8 @@
     name: ubuntu
     tag: 14.04
     force: yes
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -16,7 +18,8 @@
       - "/usr/sbin/sshd"
       - "-D"
     privileged: yes
-    debug: yes
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output

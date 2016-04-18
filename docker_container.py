@@ -103,7 +103,7 @@ class TaskParameters(DockerBaseClass):
         self.tty = None
         self.user = None
         self.uts = None
-        self.volume = None
+        self.volumes = None
         self.volumes_from = None
         self.volume_driver = None
         self.debug = None
@@ -134,9 +134,7 @@ class TaskParameters(DockerBaseClass):
         self.ulimits = self._parse_ulimits()
         self.log_config = self._parse_log_config()
         self.exp_links = None
-
-        for key, value in client.module.params.iteritems():
-            self.log("{0}: {1}".format(key, value))
+        self.volume_binds = self._parse_volumes()
 
     def fail(self, msg):
         self.client.module.fail_json(msg=msg)
@@ -169,7 +167,6 @@ class TaskParameters(DockerBaseClass):
         '''
         Returns parameters used to create a container
         '''
-
         create_params = dict(
             image='image',
             command='command',
@@ -189,12 +186,24 @@ class TaskParameters(DockerBaseClass):
             stop_signal='stop_signal',
             volume_driver='volume_driver',
         )
+
         result = dict(
-            host_config=self._host_config()
+            host_config=self._host_config(),
+            volumes=self._get_mounts(),
         )
+
         for key, value in create_params.iteritems():
             if getattr(self, value, None) is not None:
                 result[key] = getattr(self, value)
+
+        return result
+
+    def _get_mounts(self):
+        result = []
+        if self.volumes:
+            for vol in self.volumes:
+                host, container = vol.split(':')
+                result.append(host)
         return result
 
     def _host_config(self):
@@ -203,13 +212,13 @@ class TaskParameters(DockerBaseClass):
         '''
 
         host_config_params=dict(
-            binds='volumes',
             port_bindings='published_ports',
             publish_all_ports='pubish_all_ports',
             links='links',
             privileged='privileged',
             dns='dns_servers',
             dns_search='dns_search_domains',
+            binds='volume_binds',
             volumes_from='volumes_from',
             network_mode='network_mode',
             restart_policy='restart_policy',
@@ -268,6 +277,25 @@ class TaskParameters(DockerBaseClass):
             else:
                 binds[container_port] = bind
         return binds
+
+    def _parse_volumes(self):
+        '''
+        Convert volumes parameter to host_config bind format.
+
+        :return: array of binds
+        '''
+        results = dict()
+        if self.volumes:
+            for vol in self.volumes:
+                if len(vol.split(':')) == 3:
+                    host, container, mode = vol.split(':')
+                else:
+                    host, container, mode = vol.split(':') + ['rw']
+                results[container] = dict(
+                    bind=host,
+                    mode=mode
+                )
+        return results
 
     def _parse_exposed_ports(self):
         '''
@@ -456,7 +484,7 @@ class Container(DockerBaseClass):
             tty=config.get('Tty'),
             expected_ulimits=host_config.get('Ulimits'),
             uts=host_config.get('UTSMode'),
-            expected_volumes=self._get_volumes_from_dict(config.get('Volumes')),
+            expected_volumes=host_config['Binds'],
             volumes_from=host_config.get('VolumesFrom'),
             volume_driver=host_config.get('VolumeDriver')
         )
@@ -651,22 +679,42 @@ class Container(DockerBaseClass):
         self.log('_get_expected_volumes')
         image_vols = []
         if image:
-            image_vols = self._get_volumes_from_dict(image['ContainerConfig'].get('Volumes'))
-        expected_vols = self._get_volumes_from_dict(self.parameters.volumes)
-        return list(set(image_vols + expected_vols))
-
-    def _get_volumes_from_dict(self, volume_dict):
-        volumes = []
-        if volume_dict:
-            for host_path, config in volume_dict.iteritems():
-                if isinstance(config, dict) and len(config.keys()) > 0:
-                    container_path = config.get('bind')
-                    mode = config.get('mode')
+            image_vols = self._get_volumes_from_binds(image['ContainerConfig'].get('Volumes'))
+        param_vols = []
+        if self.parameters.volumes:
+            for vol in self.parameters.volumes:
+                if len(vol.split(':')) == 3:
+                    host, container, mode = vol.split(':')
                 else:
-                    container_path = config
-                    mode = 'rw'
-                volumes.append("{0}:{1}:{2}".format(host_path, container_path, mode))
-        return volumes
+                    host, container, mode = vol.split(':') + ['rw']
+                # flip to container first
+                param_vols.append("{0}:{1}:{2}".format(container, host, mode))
+        return list(set(image_vols + param_vols))
+
+    def _get_volumes_from_binds(self, volumes):
+        '''
+        Convert array of binds to array of strings with format host_path:container_path:mode
+
+        :param volumes: array of bind dicts
+        :return: array of strings
+        '''
+        results = []
+        if isinstance(volumes, dict):
+            results += self._get_volume_from_dict(volumes)
+        elif isinstance(volumes, list):
+            for vol in volumes:
+                results += self._get_volume_from_dict(vol)
+        return results
+
+    def _get_volume_from_dict(self, volume_dict):
+        results = []
+        if volume_dict:
+            for host_path, config in volume_dict.items():
+                if isinstance(config, dict) and config.get('bind'):
+                    container_path = config.get('bind')
+                    mode = config.get('mode', 'rw')
+                    results.append("{0}:{1}:{2}".format(host_path, container_path, mode))
+        return results
 
     def _get_expected_env(self, image):
         self.log('_get_expected_env')
@@ -817,7 +865,6 @@ class ContainerManager(DockerBaseClass):
         repository, tag = utils.parse_repository_tag(self.parameters.image)
         if not tag:
             tag = "latest"
-        self.log("Fetch image: {0} tag: {1}".format(repository, tag))
         image = self.client.find_image(repository, tag)
         if not self.check_mode:
             if not image or self.parameters.pull:
@@ -1005,7 +1052,6 @@ def main():
         volumes=dict(type='list'),
         volumes_from=dict(type='list'),
         volume_driver=dict(type='str'),
-        log_path=dict(type='str', default='docker_container.log')
     )
 
     required_if = [

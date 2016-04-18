@@ -18,18 +18,9 @@
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-
-from ansible.module_utils.docker_common import *
-
-import base64
-import json
-import logging
-import os
-
-
 DOCUMENTATION = '''
 ---
-module: docker_config
+module: docker_config_reader
 
 short_description: Read Docker CLI config file.
 
@@ -92,22 +83,35 @@ EXAMPLES = '''
 
 '''
 
-RETURNS = '''
-{
-    "changed": false,
-    "check_mode": false,
-    "results": {
+RETURN = '''
+changed:
+    description:
+        - Whether or not a change was made. Will always be false, as this modules does not modify the configuraiton
+          file.
+    returned: always
+    type: bool
+    sample: False
+Results:
+    description: Facts about the current state of the object.
+    returned: always
+    type: dict
+    sample: {
         "status": "Succeeded in verifying ~/.docker/config.json in config file."
     }
-}
 '''
 
 
-class ConfigManager(DockerBaseClass):
+from ansible.module_utils.basic import *
+from ansible.module_utils.docker_common import *
+
+import base64
+
+
+class ConfigReader(DockerBaseClass):
 
     def __init__(self, module, results):
 
-        super(ConfigManager, self).__init__()
+        super(ConfigReader, self).__init__()
 
         self.results = results
         self.module = module
@@ -190,15 +194,11 @@ def main():
 
     results = dict(
         changed=False,
-        check_mode=False,
         results={}
     )
 
-    ConfigManager(module, results)
+    ConfigReader(module, results)
     module.exit_json(**results)
-
-# import module snippets
-from ansible.module_utils.basic import *
 
 if __name__ == '__main__':
     main()

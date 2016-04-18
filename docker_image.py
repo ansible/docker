@@ -291,7 +291,7 @@ class ImageManager(DockerBaseClass):
 
         :return None
         '''
-        image = self.client.find_image(name=self.name, tag=self.tag)
+        image = self.client.find_image(self.name, self.tag)
         if image:
             name = self.name
             if self.tag:
@@ -429,7 +429,6 @@ def main():
         rm=dict(type='bool', default=True),
         state=dict(type='str', choices=['absent', 'present', 'tagged'], default='present'),
         tag=dict(type='str', default='latest'),
-        log_path=dict(type='str', default='docker_image.log'),
         )
 
     required_if = [

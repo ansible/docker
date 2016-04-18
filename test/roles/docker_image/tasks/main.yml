@@ -3,6 +3,7 @@
     name: pacur/centos-7
     state: absent
     debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -12,6 +13,7 @@
   docker_image_facts:
     name: pacur/centos-7
     debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -25,6 +27,7 @@
   docker_image:
     name: pacur/centos-7
     debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -34,6 +37,7 @@
   docker_image_facts:
     name: pacur/centos-7
     debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -50,6 +54,7 @@
     repository: registry-testing.ansible.com/chouseknecht/centos_images
     tag: 7.0
     debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
     push: yes
   register: output
 
@@ -129,6 +134,7 @@
     tag: v1
     archive_path: my_sinatra.tar
     debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=archive_results
@@ -154,6 +160,7 @@
     tag: v1
     load_path: my_sinatra.tar
     debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: load_results
 
 - debug: var=load_results

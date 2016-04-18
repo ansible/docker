@@ -1,0 +1,6 @@
+- name: Bring up the lnmp stack
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  roles:
+    - { role: docker_lnmp_stack }  

@@ -1,4 +1,5 @@
 ---
 run_test: all 
 playbook_debug: yes 
+playbook_debug_mode: file
 deploy_registry: no
