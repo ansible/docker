@@ -19,9 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 #
-'''
-Docker External Inventory Script
-===============================
+
+DOCUMENTATION = '''
+
+Docker Inventory Script
+=======================
 Generates dynamic inventory by making API requests to one or more Docker daemons. Communicates with the API
 by way of docker-py (https://docker-py.readthedocs.org/en/stable/). So before running the script, you will need to
 install docker-py:
@@ -30,7 +32,7 @@ install docker-py:
 
 
 Run for Specific Host
-----------------------
+---------------------
 When run for a specific container using the --host option this script returns the following hostvars:
 
 {
@@ -195,10 +197,11 @@ When run in --list mode (the default), container instances are grouped by:
 Configuration:
 --------------
 You can control the behavior of the inventory script by passing arguments, defining environment variables, or
-creating a docker_inventory.yml file (sample provided in ansible/contrib/inventory). The order of precedence is
-command line args, then the docker_inventory.yml file and finally environment variables.
+creating a docker.yml file (sample provided in ansible/contrib/inventory). The order of precedence is command
+line args, then the docker.yml file and finally environment variables.
 
-Here are the possible environment variables:
+Environment variables:
+;;;;;;;;;;;;;;;;;;;;;;
 
 DOCKER_CONFIG_FILE
    description: path to docker inventory configuration file.
@@ -260,15 +263,68 @@ DOCKER_DEFAULT_IP:
    default: 127.0.0.1 if port exposed on 0.0.0.0
 
 
-docker_inventory.yml
---------------------
+docker.yml
+;;;;;;;;;;;;;;;;;;;;
 
+A sample docker.yml file is included in the ansible/contrib/inventory. Using this file is not required. If
+the file is not found, environment variables will be used.
 
+The default name of the file is derived from the name of the inventory script. By default the script will look for
+basename of the script (i.e. docker) with an extension of '.yml'. You can override the default name by passing a 
+command line argument or setting DOCKER_CONFIG_FILE in the environment.
 
+Here's what you can define in docker_inventory.yml:
+
+  * defaults: Defines a default connnection. Defaults will be taken from this and applied to any values not provided
+    for a host defined in the hosts list.
+
+  * hosts: If you wish to get inventory from more than one Docker daemon hosts, define a hosts list.
+
+For a host defined in defaults or hosts, you can provided the following attributes. The only required attribute is host.
+
+  host:
+      description: The URL or Unix socket path for the host.
+      required: yes
+  tls:
+     description: Connect using https://
+     default: false
+     required: false
+  tls_verify:
+     description: Connect using https:// and verify the host name matches the host name found in the certificate.
+     default: false
+     required: false
+  cert_path:
+     description: Path to the host's certificate .pem file.
+     default: null
+     required: false
+  cacert_path:
+     description: Path to the host's Certificate Authority .pem file.
+     default: null
+     required: false
+  key_path:
+     description: Path to the host's encryption key .pem file
+     default: null
+     required: false
+  version:
+     description: The API version.
+     required: false
+     default: will be supplied by the docker-py module.
+  timeout:
+     description: The amount of time in seconds to wait on an API response.
+     required: false
+     default: will be supplied by the docker-py module.
+  default_ip:
+     description: The IP address to assign to ansilbe_host when the container's SSH port is mappped to 0.0.0.0
+     required: false
+     default: 1267.0.0.1
+  private_ssh_port:
+     description: The port containers use for SSH
+     required: false
+     default: 22
 
 Examples
 --------
-
+ # Run the script with Env vars (for when you have Docker toolbox installed)
  ./docker_inventory.py --pretty
 
  # Connect to docker instance on localhost port 4243
@@ -278,6 +334,19 @@ Examples
  #another IP address (where Ansible will attempt to connect via SSH)
  DOCKER_DEFAULT_IP=1.2.3.4 ./docker.py --pretty
 
+ # Run as input to a playbook:
+ ansible-playbook -i ~/projects/ansible/contrib/inventory/docker_inventory.py docker_inventory_test.yml
+
+ # Simple playbook to invoke with the above example:
+
+    - name: Test docker_inventory
+      hosts: all
+      connection: local
+      gather_facts: no
+      tasks:
+         - debug: msg="Container - {{ inventory_hostname }}"
+
+
 '''
 
 import os
@@ -285,24 +354,26 @@ import sys
 import json
 import argparse
 import re
-
-#from UserDict import UserDict
-from collections import defaultdict
-
 import yaml
 
-#from requests import HTTPError, ConnectionError
-
+from collections import defaultdict
+# Manipulation of the path is needed because the docker-py
+# module is imported by the name docker, and because this file
+# is also named docker
+for path in [os.getcwd(), '', os.path.dirname(os.path.abspath(__file__))]:
+    try:
+        del sys.path[sys.path.index(path)]
+    except:
+        pass
 
 HAS_DOCKER_PY = True
 HAS_DOCKER_ERROR = False
 
 try:
     from docker import Client
-    from docker.errors import APIError, TLSParameterError, NotFound
+    from docker.errors import APIError, TLSParameterError
     from docker.tls import TLSConfig
     from docker.constants import DEFAULT_TIMEOUT_SECONDS, DEFAULT_DOCKER_API_VERSION
-    from docker.utils.types import Ulimit, LogConfig
 except ImportError as exc:
     HAS_DOCKER_ERROR = str(exc)
     HAS_DOCKER_PY = False
@@ -703,9 +774,9 @@ class DockerInventory(object):
             try:
                 config_file = os.path.abspath(config_path)
             except:
-                self.log("Unable to open config file {0}".format(config_path))
                 config_file = None
-            if config_file:
+
+            if config_file and os.path.exists(config_file):
                 with open(config_file) as f:
                     try:
                         config = yaml.safe_load(f.read())
@@ -787,6 +858,10 @@ class DockerInventory(object):
 
 
 def main():
+
+    if not HAS_DOCKER_PY:
+        fail("Failed to import docker-py. Try `pip install docker-py` - {1}".format(HAS_DOCKER_ERROR))
+
     DockerInventory().run()
 
 main()

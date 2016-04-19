@@ -1,0 +1,6 @@
+- name: Test docker_inventory
+  hosts: all
+  connection: local
+  gather_facts: no
+  tasks:
+     - debug: msg="Container - {{ inventory_hostname }}"
