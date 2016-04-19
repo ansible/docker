@@ -691,7 +691,7 @@ class Container(DockerBaseClass):
                 else:
                     host, container, mode = vol.split(':') + ['rw']
                 # flip to container first
-                param_vols.append("{0}:{1}:{2}".format(container, host, mode))
+                param_vols.append("{0}:{1}:{2}".format(host, container, mode))
         return list(set(image_vols + param_vols))
 
     def _get_volumes_from_binds(self, volumes):
