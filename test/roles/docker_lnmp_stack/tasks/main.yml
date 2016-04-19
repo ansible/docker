@@ -1,3 +1,11 @@
+#- name: Cleanup old data volume data [if exists]
+#  file: path=/tmp/lnmp/mysql-data state=absent
+#  become: True
+#  become_user: root
+
+- name: Create data volume
+  file: path=/tmp/lnmp/mysql-data state=directory
+
 - name: Do the lnmp images exist
   docker_image_facts:
     name:
@@ -38,9 +46,6 @@
     that: not output.changed
   when: image_facts.results | length == 2
 
-- name: Create data volume
-  file: path=/tmp/lnmp/mysql-data state=directory
-
 - name: Start mysql container
   docker_container:
     name: lnmp_mysql
@@ -56,13 +61,11 @@
   when: playbook_debug
 
 - name: Create nginx volumes
-  file: path="{{ item }}" state=directory
+  file: 
+    path: "{{ item }}" 
+    state: directory
   with_items:
-    - /tmp/lnmp/temp
-    - /tmp/lnmp/www
     - /tmp/lnmp/nginx-sites/logs
-    - /tmp/lnmp/nginx-sites/sites-available
-    - /tmp/lnmp/nginx-sites/sites-enabled
 
 - name: Create nginx container
   docker_container:
@@ -71,10 +74,7 @@
     ports:
       - 0.0.0.0:80:80
     volumes:
-      - /tmp/lnmp/nginx-sites/sites-enabled/:/etc/nginx/sites-enabled
-      - /tmp/lnmp/nginx-sites/sites-available/:/etc/nginx/sites-available
-      - /tmp/lnmp/nginx-sites/logs/:/var/log/nginx
-      - /tmp/lnmp/www/:/home/www
+        - /tmp/lnmp/nginx-sites/logs/:/var/log/nginx
     links:
       - lnmp_mysql:lnmp_mysql
     debug: "{{ playbook_debug }}"
@@ -97,4 +97,18 @@
 
 - debug: var=html
   when: playbook_debug
- 
+
+- name: Get the database test page
+  get_url: 
+    url: "{{ 'http://' + output['results']['NetworkSettings']['IPAddress'] + '/dbtest.php' }}"
+    dest: /tmp/lnmp/temp/dbtest.php
+    force: yes
+  changed_when: false
+  register: html  
+
+- name: Validate the content of the dbtest
+  assert:
+    that:
+        - "'Name: Puffball' == lookup('file', '/tmp/lnmp/temp/dbtest.php')"
+
+

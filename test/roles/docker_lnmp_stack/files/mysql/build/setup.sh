@@ -80,6 +80,15 @@ else
 	echo "#"
 	echo "========================================================================="
 
+	echo "========================================================================="
+	echo "#  Creating petstore database ..."
+
+	# setup an "admin" with a random password and allowing remote connections
+    mysql -u root -proot -e "CREATE DATABASE petstore;"
+    mysql -u root -proot -D petstore -e "CREATE TABLE pets (name VARCHAR(20), owner VARCHAR(20), species VARCHAR(20));"
+    mysql -u root -proot -D petstore -e "INSERT INTO pets VALUES ('Puffball','Diane','hamster');"
+	mysql -u root -proot -e "GRANT ALL ON petstore.* TO 'petstore'@'%' IDENTIFIED BY 'redhat12345' WITH GRANT OPTION;"
+
 	# last service reboot, rock n roll
 	service mysql stop
 	mysqld_safe --skip-syslog
