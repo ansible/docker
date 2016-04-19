@@ -60,6 +60,22 @@
 - debug: var=output
   when: playbook_debug
 
+- name: set a fact for the mysql container IP
+  set_fact:
+    mysqlip: "{{ output['results']['NetworkSettings']['IPAddress'] }}"
+
+- name: Wait for mysqld to start
+  local_action: wait_for port=3306 host="{{ mysqlip }}" timeout=60
+  when: output.changed
+
+- name: Wait for the petstore db to be created
+  shell: mysql -h "{{ mysqlip }}" -u petstore -predhat12345 -D petstore -e 'show tables'
+  register: tables
+  until: "tables.rc == 0"
+  retries: 10
+  delay: 5
+  changed_when: false
+
 - name: Create nginx volumes
   file: 
     path: "{{ item }}" 
@@ -109,9 +125,13 @@
   changed_when: false
   register: html  
 
+- set_fact:
+    htmlexpected: 'Name: Puffball'
+    htmlcontent: "{{ lookup('file', '/tmp/lnmp/temp/dbtest.php') }}"
+
 - name: Validate the content of the dbtest
   assert:
     that:
-        - "'Name: Puffball' == lookup('file', '/tmp/lnmp/temp/dbtest.php')"
+        - "htmlcontent == htmlexpected"
 
 
