@@ -20,23 +20,30 @@
 DOCUMENTATION = '''
 ---
 module: docker_container
+
 short_description: manage docker containers
+
 description:
   - Manage the life cycle of docker containers.
+
 version_added: "2.1.0"
+
 options:
   blkio_weight:
     description:
       - Block IO (relative weight), between 10 and 1000.
     default: null
+    required: false
   capabilities:
     description:
       - List of capabilities to add to the container.
     default: null
+    required: false
   command:
     description:
       - Command or list of commands to execute in the container when it starts.
     default: null
+    required: false
   cpu_period:
     description:
       - Limit CPU CFS (Completely Fair Scheduler) period 
@@ -49,14 +56,17 @@ options:
     description:
       - CPUs in which to allow execution C(1,3) or C(1-3).
     default: null
+    required: false
   cpuset_mems:
     description:
       - Memory nodes (MEMs) in which to allow execution C(0-3) or C(0,1)
     default: null
+    required: false
   cpu_shares:
     description:
       - CPU shares (relative weight).
-    default: null 
+    default: null
+    required: false
   detach:
     description:
       - Enable detached mode to leave the container running in background. 
@@ -67,33 +77,40 @@ options:
       - "List of host device bindings to add to the container. Each binding is a mapping expressed
         in the format: <path_on_host>:<path_in_container>:<cgroup_permissions>"
     default: null
+    required: false
   dns_servers:
     description:
       - List of custom DNS servers.
     default: null
+    required: false
   dns_search_domains:
     description:
       - List of custom DNS search domains.
     default: null
+    required: false
   env:
     description:
       - Dictionary of key,value pairs.
     default: null
+    required: false
   entrypoint:
     description:
       - String or list of commands that overwrite the default ENTRYPOINT of the image.
     default: null
+    required: false
   etc_hosts:
     description:
       - Dict of host-to-IP mappings, where each host name is key in the dictionary. Hostname will be added to the 
         container's /etc/hosts file.
     default: null
+    required: false
   exposed_ports:
     description:
       - List of additional container ports to expose for port mappings or links.
         If the port is already exposed using EXPOSE in a Dockerfile, it does not
         need to be exposed again.
     default: null
+    required: false
     aliases:
       - exposed
   force_kill:
@@ -105,10 +122,12 @@ options:
     description:
       - List of additional group names and/or IDs that the container process will run as. 
     default: null
+    required: false
   hostname:
     description:
       - Container hostname.
     default: null
+    required: false
   ignore_image:
     description:
       - When state is present or started the module compares the configuration of an existing
@@ -121,6 +140,7 @@ options:
       - Repository path and tag used to create the container. If an image is not found or pull is true, the image
         will be pulled from the registry. If no tag is included, 'latest' will be used.
     default: null
+    required: false
   interactive:
     description:
       - Keep stdin open after a container is launched, even if not attached.
@@ -131,6 +151,7 @@ options:
         'container:<name|id>' to reuse another container's IPC namespace
         or 'host' to use the host's IPC namespace within the container.
     default: null
+    required: false
   keep_volumes:
     description:
       - Retain volumes associated with a removed container.
@@ -139,6 +160,7 @@ options:
     description:
       - Override default signal used to kill a running container.
     default null:
+    required: false
   kernel_memory:
     description:
       - "Kernel memory limit (format: <number>[<unit>]). Number is a positive integer.
@@ -148,10 +170,12 @@ options:
      description:
        - Dictionary of key value pairs.
      default: null
+     required: false
   links:
     description:
       - List of name aliases for linked containers in the format C(container_name:alias)
     default: null
+    required: false
   log_driver:
     description:
       - Specify the logging driver.
@@ -207,11 +231,13 @@ options:
       - host
       - none
     default: null
+    required: false
   networks:
     description:
       - "Dictionary of networks to which the container will be connected. The dictionary must have a name key (the name of the network).
         Optional keys include: aliases (a list of container aliases), and links (a list of links in the format C(container_name:alias))."
     default: null
+    required: false
   oom_killer:
     description:
       - Whether or not to disable OOM Killer for the container.
@@ -224,6 +250,7 @@ options:
     description:
       - Set the PID namespace mode for the container. Currenly only supports 'host'.
     default: null
+    required: false
   privileged:
     description:
       - Give extended privileges to the container.
@@ -238,6 +265,7 @@ options:
         any other mappings.
     aliases:
       - ports
+    required: false
   pull:
      description:
        - If true, always pull the latest version of an image. Otherwise, will only pull an image
@@ -256,6 +284,7 @@ options:
       - Registry URL from which to pull images. If not specified, images will be pulled from 
         the default registry found in the local docker config.json file.
     default: null
+    required: false
   restart:
     description:
       - Use with started state to force a matching container to be stopped and restarted.
@@ -277,10 +306,12 @@ options:
         Unit is optional and can be `b` (bytes), `k` (kilobytes), `m` (megabytes), or `g` (gigabytes).
       - Ommitting the unit defaults to bytes. If you omit the size entirely, the system uses `64m`.
     default: null
+    required: false
   security_opts:
     description:
       - List of security options in the form of C("label:user:User")
     default: null
+    required: false
   state:
     description:
       - '"absent" - A container matching the specified name will be stopped and removed. Use force_kill to kill the container
@@ -313,6 +344,7 @@ options:
     description:
       - Override default signal used to stop the container.
     default: null 
+    required: false
   stop_timeout:
     description:
       - Number of seconds to wait for the container to stop before sending SIGKILL.
@@ -329,15 +361,18 @@ options:
     description:
       - "List of ulimit options. A ulimit is specified as C(nofile:262144:262144)"
     default: null
+    required: false
   user:
     description:
       - Sets the username or UID used and optionally the groupname or GID for the specified command.
       - "Can be [ user | user:group | uid | uid:gid | user:gid | uid:group ]"
     default: null
+    required: false
   uts:
     description:
       - Set the UTS namespace mode for the container.
     default: null
+    required: false
   volumes:
     description:
       - List of volumes to mount within the container.
@@ -346,15 +381,21 @@ options:
       - SELinux hosts can additionally use C(z) or C(Z) to use a shared or 
         private label for the volume.
     default: null
+    required: false
   volume_driver:
     description:
       - The container's volume driver.
     default: none
+    required: false
   volumes_from:
     description:
       - List of container names or Ids to get volumes from. 
     default: null
-  
+    required: false
+
+extends_documentation_fragment:
+    - docker
+
 author:
     - "Cove Schneider (@cove)"
     - "Joshua Conner (@joshuaconner)"
@@ -362,10 +403,13 @@ author:
     - "Thomas Steinbach (@ThomasSteinbach)"
     - "Philippe Jandot (@zfil)"
     - "Daan Oosterveld (@dusdanig)"
+    - "James Tanner (@jtanner)"
+    - "Chris Houseknecht (@chouseknecht)"
+
 requirements:
     - "python >= 2.6"
-    - "docker-py >= 0.3.0"
-    - "The docker server >= 0.10.0"
+    - "docker-py >= 1.7.0"
+    - "Docker API >= 1.20"
 '''
 
 EXAMPLES = '''
@@ -1562,7 +1606,6 @@ def main():
 
     results = dict(
         changed=False,
-        check_mode=client.check_mode,
         actions=[],
         container={}
     )

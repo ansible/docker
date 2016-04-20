@@ -27,6 +27,8 @@ module: docker_login
 
 short_description: Log into a Docker registry.
 
+version_added: "2.1.0"
+
 description:
     - Provides functionality similar to the "docker login" command.
     - Authenticate with a docker registry and add the credentials to your local Docker config file. Adding the
@@ -54,8 +56,8 @@ options:
     default: null
   email:
     description:
-      - The email address for the registry account. NOTE: private registries may not require this,
-        but Docker Hub requires it.
+      - "The email address for the registry account. NOTE: private registries may not require this,
+        but Docker Hub requires it."
     default: None
   reauthorize:
     description:
@@ -71,9 +73,13 @@ options:
       - self.config_path
       - dockercfg_path
 
+extends_documentation_fragment:
+    - docker
+
 requirements:
-    - python >= 2.6
-    - docker-py >= 1.1.0
+    - "python >= 2.6"
+    - "docker-py >= 1.7.0"
+    - "Docker API >= 1.20"
 
 authors:
     - "Olaf Kilian <olaf.kilian@symanex.com>"

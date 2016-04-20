@@ -23,6 +23,8 @@ module: docker_image_facts
 
 short_description: Inspect docker images
 
+version_added: "2.1.0"
+
 description:
      - Provide one or more image names, and the module will inspect each, returning an array of inspection results.
 
@@ -34,9 +36,13 @@ options:
     default: null
     required: true
 
+extends_documentation_fragment:
+    - docker
+
 requirements:
   - "python >= 2.6"
-  - "docker-py"
+  - "docker-py >= 1.7.0"
+  - "Docker API >= 1.20"
 
 authors:
   - Chris Houseknecht (@chouseknecht)

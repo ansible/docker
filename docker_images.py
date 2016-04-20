@@ -23,6 +23,8 @@ module: docker_image
 
 short_description: Manage docker images.
 
+version_added: "2.1.0"
+
 description:
      - Build, load or pull an image, making the image available for creating containers. Also supports tagging an
        image into a repository and archiving an image to a .tar file.
@@ -55,8 +57,8 @@ options:
     required: false
   name:
     description:
-      - Image name. Name format will be one of: name, repository/name, registry_server:port/name.
-        When pushing or pulling an image the name can optionally include the tag by appending ':tag_name'.
+      - "Image name. Name format will be one of: name, repository/name, registry_server:port/name.
+        When pushing or pulling an image the name can optionally include the tag by appending ':tag_name'."
     required: true
   path:
     description:
@@ -68,8 +70,8 @@ options:
     required: false
   push:
     description:
-      - Use with state present to always push an image to the registry. The image name must contain a repository
-        path and optionally a registry. For example: registry.ansible.com/user_a/repository
+      - "Use with state present to always push an image to the registry. The image name must contain a repository
+        path and optionally a registry. For example: registry.ansible.com/user_a/repository"
     default: false
   pull:
     description:
@@ -98,21 +100,39 @@ options:
         from Docker Hub. To build the image, provide a path value set to a directory containing a context and
         Dockerfile. To load an image, specify load_path to provide a path to an archive file. To tag an image to a
         repository, provide a repository path.
+      - "NOTE: 'build' is DEPRECATED. Specifying 'build' will behave the same as 'present'."
     default: present
     choices:
       - absent
       - present
+      - build (DEPRECATED)
   tag:
     description:
       - Used to select an image when pulling. Will be added to the image when pushing, tagging or building. Defaults to
-       'latest' when pulling an image. Required when tagging.
+       'latest' when pulling an image.
     default: latest
+  use_tls:
+    description:
+      - "DEPRECATED. Whether to use tls to connect to the docker server. Set to 'no' when TLS will not be used. Set to
+        'encrypt' to use TLS. And set to 'verify' to use TLS and verify that the server's certificate is valid for the
+        server. NOTE: If you specify this option, it will set the value of the tls or tls_verify parameters."
+    choices:
+      - no
+      - encrypt
+      - verify
+    default: no
+    version_added: "2.0"
+
+extends_documentation_fragment:
+    - docker
 
 requirements:
   - "python >= 2.6"
-  - "docker-py"
+  - "docker-py >= 1.7.0"
+  - "Docker API >= 1.20"
 
 authors:
+  - Pavel Antonov (@softzilla)
   - Chris Houseknecht (@chouseknecht)
   - James Tanner (@jtanner)
 
@@ -341,7 +361,7 @@ class ImageManager(DockerBaseClass):
         self.log(image, pretty_print=True)
         if image:
             if not os.path.isfile(self.archive_path) or self.force:
-                image_name = "%:%s" % (name, tag)
+                image_name = "%s:%s" % (name, tag)
                 try:
                     self.log("Getting archive of image %s" % (image_name))
                     image = self.client.get_image(image_name)

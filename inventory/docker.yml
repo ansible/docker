@@ -19,19 +19,19 @@
 #      default: false
 #      required: false
 #   cert_path:
-#      description: Path to the host's certificate .pem file.
+#      description: Path to the client's certificate .pem file.
 #      default: null
 #      required: false
 #   cacert_path:
-#      description: Path to the host's Certificate Authority .pem file.
+#      description: Path to the client's Certificate Authority .pem file.
 #      default: null
 #      required: false
 #   key_path:
-#      description: Path to the host's encryption key .pem file
+#      description: Path to the client's encryption key .pem file
 #      default: null
 #      required: false
 #   version:
-#      description: The API version.
+#      description: The API version the client will use.
 #      required: false
 #      default: will be supplied by the docker-py module.
 #   timeout:

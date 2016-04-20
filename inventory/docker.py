@@ -212,15 +212,15 @@ DOCKER_HOST
    default: unix://var/run/docker.sock
 
 DOCKER_TLS_HOSTNAME:
-   description: Name of the host expected in Docker daemon TLS certs.
+   description: When DOCKER_TLS_VERIFY is true, provide the expected name of the host.
    default: localhost
 
 DOCKER_API_VERSION:
-   description: Version of the Docker daemon API.
+   description: Version of the Docker API the client will use.
    default: DEFAULT_DOCKER_API_VERSION as defined in docker-py
 
 DOCKER_CERT_PATH:
-   description: Path to the directory containing the Docker daemon certificate and key files.
+   description: Path to the directory containing the client certificate and key files.
    default: None
 
 DOCKER_SSL_VERSION:

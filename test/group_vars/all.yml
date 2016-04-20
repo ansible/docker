@@ -1,4 +1,4 @@
 ---
-run_test: all 
+run_test: image 
 playbook_debug: yes 
 playbook_debug_mode: file
