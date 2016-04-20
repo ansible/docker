@@ -1,0 +1,6 @@
+- name: Create local registry
+  hosts: localhost 
+  connection: local
+  gather_facts: no
+  roles:
+    - { role: create_local_registry }  

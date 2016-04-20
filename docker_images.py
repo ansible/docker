@@ -17,16 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
-
-from ansible.module_utils.docker_common import *
-
-try:
-    from docker import auth
-    from docker import utils
-except ImportError:
-    # missing docker-py handled in ansible.module_utils.docker
-    pass
-
 DOCUMENTATION = '''
 ---
 module: docker_image
@@ -172,10 +162,25 @@ actions:
     returned: always
     type: list
     sample: [
-
+        "Removed image myimage"
     ]
+image:
+    description: Facts representing the current state of the image.
+    returned: always
+    type: dict
+    sample: {
 
+    }
 '''
+
+from ansible.module_utils.docker_common import *
+
+try:
+    from docker import auth
+    from docker import utils
+except ImportError:
+    # missing docker-py handled in docker_common
+    pass
 
 
 class ImageManager(DockerBaseClass):
@@ -210,8 +215,6 @@ class ImageManager(DockerBaseClass):
             self.present()
         elif self.state == 'absent':
             self.absent()
-        elif self.state == 'tagged':
-            self.tagged()
 
     def fail(self, msg):
         self.client.fail(msg)
@@ -298,8 +301,12 @@ class ImageManager(DockerBaseClass):
         if self.archive_path:
             self.archive_image(self.name, self.tag)
 
-        if self.push:
+        if self.push and not self.repository:
             self.push_image(self.name, self.tag)
+        elif self.repository:
+            if not self.tag or self.tag == 'latest':
+                self.fail("Parameter error: when tagging an image into a repository a tag value is required.")
+            self.tag_image(self.name, self.tag, self.repository, force=self.force, push=self.push)
 
     def absent(self):
         '''
@@ -399,33 +406,36 @@ class ImageManager(DockerBaseClass):
                 self.fail("Error pushing image {0}: {1}. Does the repository exist?".format(repository, str(exc)))
             self.fail("Error pushing image {0}: {1}".format(repository, str(exc)))
 
-    def tagged(self):
+    def tag_image(self, name, tag, repository, force=False, push=False):
         '''
-        Handle state = 'tagged' to tag an image into a repository.
+        Tag an image into a repository.
 
-        :return None
+        :param name: name of the image. required.
+        :param tag: image tag. required.
+        :param repository: path to the repository. required.
+        :param force: bool. force tagging, even it image already exists with the repository path.
+        :param push: bool. push the image once it's tagged.
+        :return: None
         '''
-        image = self.client.find_image(name=self.repository, tag=self.tag)
-        if not image or self.force:
+        image = self.client.find_image(name=repository, tag=tag)
+        if not image or force:
             try:
-                self.log("tagging {0} to {1} with tag {2}".format(self.name, self.repository, self.tag))
+                self.log("tagging {0} to {1} with tag {2}".format(name, repository, tag))
                 self.results['changed'] = True
                 if not self.check_mode:
-                    self.results['actions'].append("Tagged image {0} to {1}:{2}".format(self.name,
-                                                                                        self.repository,
-                                                                                        self.tag))
-                    tag_status = self.client.tag(self.name, self.repository, tag=self.tag, force=self.force)
+                    self.results['actions'].append("Tagged image {0} to {1}:{2}".format(name, repository, tag))
+                    tag_status = self.client.tag(name, repository, tag=tag, force=force)
                     if not tag_status:
                         raise Exception("Tag operation failed.")
-                image = self.client.find_image(name=self.repository, tag=self.tag)
+                image = self.client.find_image(name=repository, tag=tag)
                 if image:
                     self.results['image'] = image
             except Exception, exc:
-                self.fail("Error: failed to tag image {0} - {1}".format(self.name, str(exc)))
+                self.fail("Error: failed to tag image {0} - {1}".format(name, str(exc)))
 
-            if self.push:
-                self.log("push {0} with tag {1}".format(self.repository, self.tag))
-                self.push_image(self.repository, self.tag)
+            if push:
+                self.log("push {0} with tag {1}".format(repository, tag))
+                self.push_image(repository, tag)
 
 
 def main():

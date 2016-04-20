@@ -601,6 +601,11 @@ class TaskParameters(DockerBaseClass):
         if self.restart_policy is not None:
             self.restart_policy = dict(Name=self.restart_policy,
                                        MaximumRetryCount=self.restart_retries)
+        if self.volumes:
+            self.volumes = self._expand_host_paths()
+        self.log("volumes:")
+        self.log(self.volumes, pretty_print=True)
+
         self.ulimits = self._parse_ulimits()
         self.log_config = self._parse_log_config()
         self.exp_links = None
@@ -667,6 +672,19 @@ class TaskParameters(DockerBaseClass):
                 result[key] = getattr(self, value)
 
         return result
+
+    def _expand_host_paths(self):
+        new_vols = []
+        for vol in self.volumes:
+            if len(vol.split(':')) == 3:
+                host, container, mode = vol.split(':')
+                host = os.path.abspath(host)
+                new_vols.append(host + ':' + container + ':' + mode)
+            else:
+                host, container = vol.split(':')
+                host = os.path.abspath(host)
+                new_vols.append(host + ':' + container)
+        return new_vols
 
     def _get_mounts(self):
         result = []
@@ -933,7 +951,7 @@ class Container(DockerBaseClass):
             dns_opts=host_config.get('DnsOptions'),
             dns_search_domains=host_config.get('DnsSearch'),
             expected_env=(config.get('Env') or []),
-            expected_entrypoint=host_config.get('Entrypoint'),
+            expected_entrypoint=config.get('Entrypoint'),
             expected_etc_hosts=host_config['ExtraHosts'],
             expected_exposed=[re.sub(r'/.+$', '', p) for p in config.get('ExposedPorts', dict()).keys()],
             groups=host_config.get('GroupAdd'),
@@ -1116,7 +1134,11 @@ class Container(DockerBaseClass):
 
     def _get_expected_entrypoint(self, image):
         self.log('_get_expected_entrypoint')
-        entrypoint = (self.parameters.entrypoint)
+
+        if isinstance(self.parameters.entrypoint, list):
+            entrypoint = self.parameters.entrypoint
+        else:
+            entrypoint = []
         if image and image['ContainerConfig'].get('Entrypoint'):
             entrypoint = list(set(entrypoint + image['ContainerConfig'].get('Entrypoint')))
         return entrypoint
