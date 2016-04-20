@@ -62,7 +62,7 @@
 
 - name: set a fact for the mysql container IP
   set_fact:
-    mysqlip: "{{ output['results']['NetworkSettings']['IPAddress'] }}"
+    mysqlip: "{{ output['container']['NetworkSettings']['IPAddress'] }}"
 
 - name: Wait for mysqld to start
   local_action: wait_for port=3306 host="{{ mysqlip }}" timeout=60
@@ -104,11 +104,11 @@
   file: path=/tmp/lnmp/temp state=directory
 
 - name: Wait for nginx to start
-  local_action: wait_for port=80 host="{{ output['results']['NetworkSettings']['IPAddress'] }}" timeout=60
+  local_action: wait_for port=80 host="{{ output['container']['NetworkSettings']['IPAddress'] }}" timeout=60
 
 - name: Verify the nginx container is listening on port 80
   get_url: 
-    url: "{{ 'http://' + output['results']['NetworkSettings']['IPAddress'] }}"
+    url: "{{ 'http://' + output['container']['NetworkSettings']['IPAddress'] }}"
     dest: /tmp/lnmp/temp/index.html
     force: yes
   changed_when: false
@@ -119,7 +119,7 @@
 
 - name: Get the database test page
   get_url: 
-    url: "{{ 'http://' + output['results']['NetworkSettings']['IPAddress'] + '/dbtest.php' }}"
+    url: "{{ 'http://' + output['container']['NetworkSettings']['IPAddress'] + '/dbtest.php' }}"
     dest: /tmp/lnmp/temp/dbtest.php
     force: yes
   changed_when: false
