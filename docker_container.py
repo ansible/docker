@@ -369,118 +369,74 @@ requirements:
 '''
 
 EXAMPLES = '''
-# Containers are matched either by name (if provided) or by an exact match of
-# the image they were launched with and the command they're running. The module
-# can accept either a name to target a container uniquely, or a count to operate
-# on multiple containers at once when it makes sense to do so.
-
-# Ensure that a data container with the name "mydata" exists. If no container
-# by this name exists, it will be created, but not started.
-
-- name: data container
-  docker:
+- name: Create a data container
+  docker_container:
     name: mydata
     image: busybox
-    state: present
     volumes:
-    - /data
+      - /data
 
-# Ensure that a Redis server is running, using the volume from the data
-# container. Expose the default Redis port.
-
-- name: redis container
-  docker:
+- name: Re-create a redis container
+  docker_container:
     name: myredis
     image: redis
     command: redis-server --appendonly yes
-    state: started
+    state: present
+    recreate: yes
     expose:
-    - 6379
+      - 6379
     volumes_from:
-    - mydata
+      - mydata
 
-# Ensure that a container of your application server is running. This will:
-# - pull the latest version of your application image from DockerHub.
-# - ensure that a container is running with the specified name and exact image.
-#   If any configuration options have changed, the existing container will be
-#   stopped and removed, and a new one will be launched in its place.
-# - link this container to the existing redis container launched above with
-#   an alias.
-# - grant the container read write permissions for the host's /dev/sda device
-#   through a node named /dev/xvda
-# - bind TCP port 9000 within the container to port 8080 on all interfaces
-#   on the host.
-# - bind UDP port 9001 within the container to port 8081 on the host, only
-#   listening on localhost.
-# - specify 2 ip resolutions.
-# - set the environment variable SECRET_KEY to "ssssh".
-
-- name: application container
-  docker:
+- name: Restart a container
+  docker_container:
     name: myapplication
     image: someuser/appimage
-    state: reloaded
-    pull: always
+    state: started 
+    restart: yes
     links:
-    - "myredis:aliasedredis"
+     - "myredis:aliasedredis"
     devices:
-    - "/dev/sda:/dev/xvda:rwm"
+     - "/dev/sda:/dev/xvda:rwm"
     ports:
-    - "8080:9000"
-    - "127.0.0.1:8081:9001/udp"
-    extra_hosts:
-      host1: "192.168.0.1"
-      host2: "192.168.0.2"
+     - "8080:9000"
+     - "127.0.0.1:8081:9001/udp"
     env:
         SECRET_KEY: ssssh
 
-# Ensure that exactly five containers of another server are running with this
-# exact image and command. If fewer than five are running, more will be launched;
-# if more are running, the excess will be stopped.
+- name: Container present
+  docker_container:
+    name: mycontainer
+    state: present
+    recreate: yes
+    forcekill: yes
+    image: someplace/image
+    command: echo "I'm here!"
 
-- name: load-balanced containers
-  docker:
-    state: reloaded
-    count: 5
+- name: Start 4 load-balanced containers
+  docker_container:
+    name: "container{{ item }}"
+    state: started
+    recreate: yes
     image: someuser/anotherappimage
     command: sleep 1d
+  with_sequence: count=4
 
-# Unconditionally restart a service container. This may be useful within a
-# handler, for example.
-
-- name: application service
-  docker:
-    name: myservice
-    image: someuser/serviceimage
-    state: restarted
-
-# Stop all containers running the specified image.
-
-- name: obsolete container
-  docker:
-    image: someuser/oldandbusted
-    state: stopped
-
-# Stop and remove a container with the specified name.
-
-- name: obsolete container
-  docker:
+-name: remove container
+  docker_container:
     name: ohno
-    image: someuser/oldandbusted
     state: absent
 
-# Example Syslogging Output
-
-- name: myservice container
-  docker:
+- name: Syslogging output 
+  docker_container:
     name: myservice
-    image: someservice/someimage
-    state: reloaded
+    state: started 
     log_driver: syslog
     log_opt:
       syslog-address: tcp://my-syslog-server:514
       syslog-facility: daemon
       syslog-tag: myservice
+
 '''
 
 import logging
