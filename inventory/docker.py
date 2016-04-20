@@ -403,7 +403,7 @@ DOCKER_ENV_ARGS = dict(
 
 
 def fail(msg):
-    sys.stderr.write("{0}\n".format(msg))
+    sys.stderr.write("%s\n" % msg)
     sys.exit(1)
 
 
@@ -424,9 +424,9 @@ class AnsibleDockerClient(Client):
         try:
             super(AnsibleDockerClient, self).__init__(**self._connect_params)
         except APIError, exc:
-            self.fail("Docker API error: {0}".format(exc))
+            self.fail("Docker API error: %s" % exc)
         except Exception, exc:
-            self.fail("Error connecting: {0}".format(exc))
+            self.fail("Error connecting: %s" % exc)
 
     def fail(self, msg):
         fail(msg)
@@ -438,19 +438,19 @@ class AnsibleDockerClient(Client):
     def _get_tls_config(self, **kwargs):
         self.log("get_tls_config:")
         for key in kwargs:
-            self.log("  {0}: {1}".format(key, kwargs[key]))
+            self.log("  %s: %s" % (key, kwargs[key]))
         try:
             tls_config = TLSConfig(**kwargs)
             return tls_config
         except TLSParameterError, exc:
-           self.fail("TLS config error: {0}".format(exc))
+           self.fail("TLS config error: %s" % exc)
 
     def _get_connect_params(self):
         auth = self.auth_params
 
         self.log("auth params:")
         for key in auth:
-            self.log("  {0}: {1}".format(key, auth[key]))
+            self.log("  %s: %s" % (key, auth[key]))
 
         if auth['tls'] or auth['tls_verify']:
             auth['docker_host'] = auth['docker_host'].replace('tcp://', 'https://')
@@ -521,12 +521,12 @@ class AnsibleDockerClient(Client):
     def _handle_ssl_error(self, error):
         match = re.match(r"hostname.*doesn\'t match (\'.*\')", str(error))
         if match:
-            msg = "You asked for verification that Docker host name matches {0}. The actual hostname is {1}. " \
-                "Most likely you need to set DOCKER_TLS_HOSTNAME or pass tls_hostname with a value of {1}. " \
+            msg = "You asked for verification that Docker host name matches %s. The actual hostname is %s. " \
+                "Most likely you need to set DOCKER_TLS_HOSTNAME or pass tls_hostname with a value of %s. " \
                 "You may also use TLS without verification by setting the tls parameter to true." \
-                .format(self.auth_params['tls_hostname'], match.group(1))
+                 % (self.auth_params['tls_hostname'], match.group(1))
             self.fail(msg)
-        self.fail("SSL Exception: {0}".format(error))
+        self.fail("SSL Exception: %s" % (error))
 
 
 class EnvArgs(object):
@@ -582,7 +582,7 @@ class DockerInventory(object):
         try:
             containers = client.containers(all=True)
         except Exception as exc:
-            self.fail("Error fetching containers for host {0} - {1}".format(hostname, str(exc)))
+            self.fail("Error fetching containers for host %s - %s" % (hostname, str(exc)))
 
         for container in containers:
             id = container.get('Id')
@@ -597,14 +597,14 @@ class DockerInventory(object):
                 try:
                     inspect = client.inspect_container(id)
                 except Exception as exc:
-                    self.fail("Error inspecting container {0} - {1}".format(name, str(exc)))
+                    self.fail("Error inspecting container %s - %s" % (name, str(exc)))
 
                 running = inspect.get('State', dict()).get('Running')
 
                 # Add container to groups
                 image_name = inspect.get('Config', dict()).get('Image')
                 if image_name:
-                    self.groups["image_{0}".format(image_name)].append(name)
+                    self.groups["image_%s" % (image_name)].append(name)
 
                 self.groups[id].append(name)
                 self.groups[name].append(name)
@@ -781,7 +781,7 @@ class DockerInventory(object):
                     try:
                         config = yaml.safe_load(f.read())
                     except Exception as exc:
-                        self.fail("Error: parsing {0} - {1}".format(config_path, str(exc)))
+                        self.fail("Error: parsing %s - %s" % (config_path, str(exc)))
         return config
 
     def log(self, msg, pretty_print=False):
@@ -820,17 +820,17 @@ class DockerInventory(object):
         parser.add_argument('--pretty', action='store_true', default=False,
                            help='Pretty print JSON output(default: False)')
         parser.add_argument('--config-file', action='store', default=default_config,
-                            help="Name of the config file to use. Default is {0}".format(default_config))
+                            help="Name of the config file to use. Default is %s" % (default_config))
         parser.add_argument('--docker-host', action='store', default=None,
-                            help="The base url or Unix sock path to connect to the docker daemon. Defaults to {0}"
-                                 .format(DEFAULT_DOCKER_HOST))
+                            help="The base url or Unix sock path to connect to the docker daemon. Defaults to %s"
+                                  % (DEFAULT_DOCKER_HOST))
         parser.add_argument('--tls-hostname', action='store', default='localhost',
                             help="Host name to expect in TLS certs. Defaults to 'localhost'")
         parser.add_argument('--api-version', action='store', default=None,
-                            help="Docker daemon API version. Defaults to {0}".format(DEFAULT_DOCKER_API_VERSION))
+                            help="Docker daemon API version. Defaults to %s" % (DEFAULT_DOCKER_API_VERSION))
         parser.add_argument('--timeout', action='store', default=None,
-                            help="Docker connection timeout in seconds. Defaults to {0}"
-                                 .format(DEFAULT_TIMEOUT_SECONDS))
+                            help="Docker connection timeout in seconds. Defaults to %s"
+                                  % (DEFAULT_TIMEOUT_SECONDS))
         parser.add_argument('--cacert-path', action='store', default=None,
                             help="Path to the TLS certificate authority pem file.")
         parser.add_argument('--cert-path', action='store', default=None,
@@ -840,13 +840,13 @@ class DockerInventory(object):
         parser.add_argument('--ssl-version', action='store', default=None,
                             help="TLS version number")
         parser.add_argument('--tls', action='store_true', default=None,
-                            help="Use TLS. Defaults to {0}".format(DEFAULT_TLS))
+                            help="Use TLS. Defaults to %s" % (DEFAULT_TLS))
         parser.add_argument('--tls-verify', action='store_true', default=None,
-                            help="Verify TLS certificates. Defaults to {0}".format(DEFAULT_TLS_VERIFY))
+                            help="Verify TLS certificates. Defaults to %s" % (DEFAULT_TLS_VERIFY))
         parser.add_argument('--private-ssh-port', action='store', default=None,
-                            help="Default private container SSH Port. Defaults to {0}".format(DEFAULT_SSH_PORT))
+                            help="Default private container SSH Port. Defaults to %s" % (DEFAULT_SSH_PORT))
         parser.add_argument('--default-ip-address', action='store', default=None,
-                            help="Default container SSH IP address. Defaults to {0}".format(DEFAULT_IP))
+                            help="Default container SSH IP address. Defaults to %s" % (DEFAULT_IP))
         return parser.parse_args()
 
     def _json_format_dict(self, data, pretty_print=False):
@@ -860,7 +860,7 @@ class DockerInventory(object):
 def main():
 
     if not HAS_DOCKER_PY:
-        fail("Failed to import docker-py. Try `pip install docker-py` - {1}".format(HAS_DOCKER_ERROR))
+        fail("Failed to import docker-py. Try `pip install docker-py` - %s" % (HAS_DOCKER_ERROR))
 
     DockerInventory().run()
 
