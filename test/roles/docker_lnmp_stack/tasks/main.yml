@@ -19,7 +19,7 @@
   when: playbook_debug
 
 - name: Build the mysql image
-  docker_image:
+  docker_images:
     path: ./roles/docker_lnmp_stack/files/mysql
     name: lnmp_mysql
     tag: v1
@@ -33,7 +33,7 @@
   when: image_facts.results | length == 2
 
 - name: Build the nginx image
-  docker_image:
+  docker_images:
     path: ./roles/docker_lnmp_stack/files/nginx
     name: lnmp_nginx
     tag: v1
