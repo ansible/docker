@@ -1252,7 +1252,7 @@ class ContainerManager(DockerBaseClass):
             container = self.update_networks(container)
             if state == 'started':
                 container = self.container_start(container.Id)
-            self.results['results'] = container.raw
+            self.results['container'] = container.raw
             return True
 
         # Existing container
@@ -1283,7 +1283,7 @@ class ContainerManager(DockerBaseClass):
             self.container_stop(container.Id)
             container = self._get_container(container.Id)
 
-        self.results['results'] = container.raw
+        self.results['container'] = container.raw
 
     def absent(self):
         container = Container(self.client.get_container(self.parameters.name), self.parameters)
@@ -1510,7 +1510,7 @@ def main():
         changed=False,
         check_mode=client.check_mode,
         actions=[],
-        results={}
+        container={}
     )
 
     ContainerManager(client, results)
