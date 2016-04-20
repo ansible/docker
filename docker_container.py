@@ -445,14 +445,45 @@ actions:
     returned: always
     type: list
     sample: [
-        "Removed container foo"
+        {
+        "started": "8e47bf643eb95e2da60758f022629179605c336f04410c3e8ed120c376f1570b"
+        }
     ]
 container:
     description: Facts representing the current state of the container.
     returned: always
     type: dict
     sample: {
-    
+        "AppArmorProfile": "",
+        "Args": [],
+        "Config": {
+            "AttachStderr": false,
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "Cmd": [
+                "/usr/bin/supervisord"
+            ],
+            "Domainname": "",
+            "Entrypoint": null,
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            ],
+            "ExposedPorts": {
+                "443/tcp": {},
+                "80/tcp": {}
+            },
+            "Hostname": "8e47bf643eb9",
+            "Image": "lnmp_nginx:v1",
+            "Labels": {},
+            "OnBuild": null,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Tty": false,
+            "User": "",
+            "Volumes": {
+                "/tmp/lnmp/nginx-sites/logs/": {}
+            },
+            ...
     }
 '''
 
