@@ -439,6 +439,23 @@ EXAMPLES = '''
 
 '''
 
+RETURN = '''
+actions:
+    description: List of actions taken by the module.
+    returned: always
+    type: list
+    sample: [
+        "Removed container foo"
+    ]
+container:
+    description: Facts representing the current state of the container.
+    returned: always
+    type: dict
+    sample: {
+    
+    }
+'''
+
 import logging
 
 from ansible.module_utils.docker_common import *
