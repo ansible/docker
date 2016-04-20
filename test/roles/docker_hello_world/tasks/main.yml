@@ -1,5 +1,5 @@
 - name: Remove the hello-world image
-  docker_image:
+  docker_images:
     name: hello-world
     state: absent
     force: yes

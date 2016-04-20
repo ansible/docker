@@ -1,5 +1,5 @@
 - name: Remove image
-  docker_image:
+  docker_images:
     name: pacur/centos-7
     state: absent
     debug: "{{ playbook_debug }}"
@@ -24,7 +24,7 @@
     that: output.images | length == 0
 
 - name: Pull pacur/centos-7
-  docker_image:
+  docker_images:
     name: pacur/centos-7
     debug: "{{ playbook_debug }}"
     log_mode: "{{ playbook_debug_mode }}"
@@ -47,60 +47,22 @@
   assert:
     that: output.images | length == 1
 
-- name: Tag to registry-testing.ansible.com
-  docker_image:
-    name: pacur/centos-7
-    state: tagged
-    repository: registry-testing.ansible.com/chouseknecht/centos_images
-    tag: 7.0
-    debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
-    push: yes
-  register: output
-
-- debug: var=output
-  when: playbook_debug
-
-- name: Get tagged image facts
-  docker_image_facts:
-    name: registry-testing.ansible.com/chouseknecht/centos_images
-  register: output
-
-- debug: var=output
-  when: playbook_debug
-
-- name: Tagged image should be present
-  assert:
-    that: output.images | length == 1
+- file: path=my_sintra.tar state=absent
 
 - name: Remove image sinatra
-  docker_image:
+  docker_images:
     state: absent
-    name: registry-testing.ansible.com/chouseknecht/sinatra
+    name: mysinatra
     tag: v1
   register: output
 
 - debug: var=output
   when: playbook_debug
 
-- name: Get sinatra image facts
-  docker_image_facts:
-    name: registry-testing.ansible.com/chouseknecht/sinatra
-  register: output
-
-- debug: var=output
-  when: playbook_debug
-
-- name: Sinatra image should be absent
-  assert:
-    that: output.images | length == 0
-
-- file: path=my_sintra.tar state=absent
-
-- name: Build an image
-  docker_image:
-    path: ./roles/docker_image/sinatra
-    name: registry-testing.ansible.com/chouseknecht/sinatra
+- name: Build and archive image
+  docker_images:
+    path: ./roles/docker_image/files/sinatra
+    name: mysinatra
     tag: v1
     archive_path: my_sinatra.tar
   register: output
@@ -110,7 +72,9 @@
 
 - name: Get sinatra image facts
   docker_image_facts:
-    name: registry-testing.ansible.com/chouseknecht/sinatra
+    name: mysinatra:v1
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -121,7 +85,7 @@
     that: output.images | length == 1
 
 - name: Get archive path facts
-  stat: path=my_sintra.tar
+  stat: path=my_sinatra.tar
   register: output
 
 - name: Archive file should be present
@@ -129,8 +93,8 @@
     that: output.stat.exists
 
 - name: Archive_image
-  docker_image:
-    name: registry-testing.ansible.com/chouseknecht/sinatra
+  docker_images:
+    name: mysinatra
     tag: v1
     archive_path: my_sinatra.tar
     debug: "{{ playbook_debug }}"
@@ -145,18 +109,30 @@
     that: not output.changed
 
 - name: Remove image sinatra
-  docker_image:
+  docker_images:
     state: absent
-    name: registry-testing.ansible.com/chouseknecht/sinatra
+    name: mysinatra
     tag: v1
   register: output
 
 - debug: var=output
   when: playbook_debug
 
-- name: Load an image
-  docker_image:
-    name: registry-testing.ansible.com/chouseknecht/sinatra
+- name: Get sinatra image facts
+  docker_image_facts:
+    name: mysinatra:v1
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- name: Sinatra image should be absent
+  assert:
+    that: output.images | length == 0
+
+- name: Load image from archive
+  docker_images:
+    name: mysinatra
     tag: v1
     load_path: my_sinatra.tar
     debug: "{{ playbook_debug }}"
@@ -166,3 +142,14 @@
 - debug: var=output
   when: playbook_debug
 
+- name: Get sinatra image facts
+  docker_image_facts:
+    name: mysinatra:v1
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- name: Sinatra image should be present
+  assert:
+    that: output.images | length == 1

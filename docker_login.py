@@ -2,6 +2,7 @@
 #
 # (c) 2016 Olaf Kilian <olaf.kilian@symanex.com>
 #          Chris Houseknecht, <house@redhat.com>
+#          James Tanner, <jtanner@redhat.com>
 #
 # This file is part of Ansible
 #
@@ -18,10 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 #
-
-import base64
-
-from ansible.module_utils.docker_common import *
 
 
 DOCUMENTATION = '''
@@ -49,10 +46,12 @@ options:
     description:
       - The username for the registry account
     required: true
+    default: null
   password:
     description:
       - The plaintext password for the registry account
     required: true
+    default: null
   email:
     description:
       - The email address for the registry account. NOTE: private registries may not require this,
@@ -78,7 +77,8 @@ requirements:
 
 authors:
     - "Olaf Kilian <olaf.kilian@symanex.com>"
-    - "Chris Houseknecht house@redhat.com"
+    - "Chris Houseknecht (@chouseknecht)"
+    - "James Tanner (@jtanner)"
 
 version_added: "2.0"
 
@@ -108,19 +108,31 @@ EXAMPLES = '''
 
 '''
 
-RETURNS = '''
-{
-    "actions": [
+RETURN = '''
+actions:
+    description: List of actions taken by the module.
+    returned: always
+    type: list
+    sample: [
         "Log into https://index.docker.io/v1/",
         "Updated config file /Users/chouseknecht/.docker/config.json with new authorization for https://index.docker.io/v1/"
-    ],
-    "changed": true,
-    "check_mode": false,
-    "results": {
-        "Status": "Login Succeeded"
+    ]
+login_results:
+    descriptoin: Results from the login.
+    returned: always
+    type: dict
+    sample:{
+        "email": "testuer@yahoo.com",
+        "password": "VALUE_SPECIFIED_IN_NO_LOG_PARAMETER",
+        "serveraddress": "localhost:5000",
+        "username": "testuser"
     }
 }
 '''
+
+import base64
+
+from ansible.module_utils.docker_common import *
 
 
 class LoginManager(DockerBaseClass):
@@ -156,10 +168,10 @@ class LoginManager(DockerBaseClass):
 
         if self.email and not re.match(EMAIL_REGEX, self.email):
             self.fail("Parameter error: the email address appears to be incorrect. Expecting it to match "
-                      "/{0}/".format(EMAIL_REGEX))
+                      "/%s/" % (EMAIL_REGEX))
 
-        self.results['actions'].append("Logged into {0}".format(self.registry_url))
-        self.log("Log into {0} with username {1}".format(self.registry_url, self.username))
+        self.results['actions'].append("Logged into %s" % (self.registry_url))
+        self.log("Log into %s with username %s" % (self.registry_url, self.username))
         try:
             response = self.client.login(
                 self.username,
@@ -170,19 +182,17 @@ class LoginManager(DockerBaseClass):
                 dockercfg_path=self.config_path
             )
         except Exception, exc:
-            self.fail("Logging into {0} for user {1} failed - {2}".format(self.registry_url,
-                                                                      self.username,
-                                                                      str(exc)))
-        self.results['results'] = response
+            self.fail("Logging into %s for user %s failed - %s" % (self.registry_url, self.username, str(exc)))
+        self.results['login_result'] = response
 
         if not self.check_mode:
             self.update_config_file()
 
     def config_file_exists(self, path):
         if os.path.exists(path):
-            self.log("Configuration file {0} exists".format(path))
+            self.log("Configuration file %s exists" % (path))
             return True
-        self.log("Configuration file {0} not found.".format(path))
+        self.log("Configuration file %s not found." % (path))
         return False
 
     def create_config_file(self, path):
@@ -192,20 +202,20 @@ class LoginManager(DockerBaseClass):
         :return: None
         '''
 
-        self.log("Creating docker config file {0}".format(path))
+        self.log("Creating docker config file %s" % (path))
         config_path_dir = os.path.dirname(path)
         if not os.path.exists(config_path_dir):
             try:
                 os.makedirs(config_path_dir)
             except Exception, exc:
-                self.fail("Error: failed to create {0} - {1}".format(config_path_dir, str(exc)))
+                self.fail("Error: failed to create %s - %s" % (config_path_dir, str(exc)))
         self.write_config(path, dict(auths=dict()))
 
     def write_config(self, path, config):
         try:
             json.dump(config, open(path, "w"), indent=5, sort_keys=True)
         except Exception, exc:
-            self.fail("Error: failed to write config to {0} - {1}".format(path, str(exc)))
+            self.fail("Error: failed to write config to %s - %s" % (path, str(exc)))
 
     def update_config_file(self):
         '''
@@ -223,7 +233,7 @@ class LoginManager(DockerBaseClass):
             # read the existing config
             config = json.load(open(path, "r"))
         except ValueError:
-            self.log("Error reading config from {0}".format(path))
+            self.log("Error reading config from %s" % (path))
             config = dict()
 
         if not config.get('auths'):
@@ -231,7 +241,7 @@ class LoginManager(DockerBaseClass):
             config['auths'] = dict()
 
         if not config['auths'].get(self.registry_url):
-            self.log("Adding registry_url {0} to auths.".format(self.registry_url))
+            self.log("Adding registry_url %s to auths." % (self.registry_url))
             config['auths'][self.registry_url] = dict()
 
         encoded_credentials = dict(
@@ -242,9 +252,8 @@ class LoginManager(DockerBaseClass):
         if config['auths'][self.registry_url] != encoded_credentials or self.reauthorize:
             # Update the config file with the new authorization
             config['auths'][self.registry_url] = encoded_credentials
-            self.log("Updating config file {0} with new authorization for {1}".format(path,
-                                                                                      self.registry_url))
-            self.results['actions'].append("Updated config file {0} with new authorization for {1}".format(
+            self.log("Updating config file %s with new authorization for %s" % (path, self.registry_url))
+            self.results['actions'].append("Updated config file %s with new authorization for %s" % (
                 path, self.registry_url))
             self.results['changed'] = True
             self.write_config(path, config)
@@ -274,9 +283,8 @@ def main():
 
     results = dict(
         changed=False,
-        check_mode=client.check_mode,
         actions=[],
-        results={}
+        login_result={}
     )
 
     LoginManager(client, results)

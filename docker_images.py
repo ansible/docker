@@ -244,12 +244,12 @@ class ImageManager(DockerBaseClass):
                     decode=True
                 )
                 if self.tag:
-                    params['tag'] = "{0}:{1}".format(self.name, self.tag)
+                    params['tag'] = "%s:%s" % (self.name, self.tag)
                 if self.container_limits:
                     params['container_limits'] = self.container_limits,
-                self.log("Building image {0}".format(params['tag']))
+                self.log("Building image %s" % (params['tag']))
                 if not self.check_mode:
-                    self.results['actions'].append("Built image {0} from {1}".format(params['tag'], self.path))
+                    self.results['actions'].append("Built image %s from %s" % (params['tag'], self.path))
                     for line in self.client.build(**params):
                         self.log(line, pretty_print=True)
                 self.results['changed'] = True
@@ -260,27 +260,27 @@ class ImageManager(DockerBaseClass):
             elif self.load_path:
                 # Load the image from an archive
                 if not os.path.isfile(self.load_path):
-                    self.fail("Error loading image {0}. Specified path {1} does not exist.".format(self.name,
-                                                                                                   self.load_path))
+                    self.fail("Error loading image %s. Specified path %s does not exist." % (self.name,
+                                                                                             self.load_path))
                 name = self.name
                 if self.tag:
-                    name = "{0}:{1}".format(self.name, self.tag)
+                    name = "%s:%s" % (self.name, self.tag)
 
                 if not self.check_mode:
-                    self.results['actions'].append("Loaded image {0} from {1}".format(name, self.load_path))
+                    self.results['actions'].append("Loaded image %s from %s" % (name, self.load_path))
                     try:
-                        self.log("Reading image data from {0}".format(self.load_path))
+                        self.log("Reading image data from %s" % (self.load_path))
                         image_tar = open(self.load_path, 'r')
                         image_data = image_tar.read()
                         image_tar.close()
                     except Exception, exc:
-                        self.fail("Error reading image data {0} - {1}".format(self.load_path, str(exc)))
+                        self.fail("Error reading image data %s - %s" % (self.load_path, str(exc)))
 
                     try:
-                        self.log("Loading image from {0}".format(self.load_path))
+                        self.log("Loading image from %s" % (self.load_path))
                         response = self.client.load_image(image_data)
                     except Exception, exc:
-                        self.fail("Error loading image {0} - {1}".format(name, str(exc)))
+                        self.fail("Error loading image %s - %s" % (name, str(exc)))
 
                 self.results['changed'] = True
                 image = self.client.find_image(self.name, self.tag)
@@ -290,7 +290,7 @@ class ImageManager(DockerBaseClass):
             else:
                 # pull the image
                 if not self.check_mode:
-                    self.results['actions'].append('Pulled image {0}:{1}'.format(self.name, self.tag))
+                    self.results['actions'].append('Pulled image %s:%s' % (self.name, self.tag))
                     self.client.pull_image(self.name, tag=self.tag)
 
                 self.results['changed'] = True
@@ -304,8 +304,6 @@ class ImageManager(DockerBaseClass):
         if self.push and not self.repository:
             self.push_image(self.name, self.tag)
         elif self.repository:
-            if not self.tag or self.tag == 'latest':
-                self.fail("Parameter error: when tagging an image into a repository a tag value is required.")
             self.tag_image(self.name, self.tag, self.repository, force=self.force, push=self.push)
 
     def absent(self):
@@ -318,15 +316,15 @@ class ImageManager(DockerBaseClass):
         if image:
             name = self.name
             if self.tag:
-                name = "{0}:{1}".format(self.name, self.tag)
+                name = "%s:%s" % (self.name, self.tag)
             if not self.check_mode:
                 try:
                     self.client.remove_image(name, force=self.force)
                 except Exception, exc:
-                    self.fail("Error removing image {0} - {1}".format(name, str(exc)))
+                    self.fail("Error removing image %s - %s" % (name, str(exc)))
 
             self.results['changed'] = True
-            self.results['actions'].append("Removed image {0}".format(name))
+            self.results['actions'].append("Removed image %s" % (name))
             self.results['image']['state'] = 'Deleted'
 
     def archive_image(self, name, tag):
@@ -343,21 +341,21 @@ class ImageManager(DockerBaseClass):
         self.log(image, pretty_print=True)
         if image:
             if not os.path.isfile(self.archive_path) or self.force:
-                image_name = "{0}:{1}".format(name, tag)
+                image_name = "%:%s" % (name, tag)
                 try:
-                    self.log("Getting archive of image {0}".format(image_name))
+                    self.log("Getting archive of image %s" % (image_name))
                     image = self.client.get_image(image_name)
                 except Exception, exc:
-                    self.fail("Error getting image {0} - {1}".format(image_name, str(exc)))
+                    self.fail("Error getting image %s - %s" % (image_name, str(exc)))
 
                 if not self.check_mode:
-                    self.results['actions'].append('Archived image {0} to {1}'.format(image_name, self.archive_path))
+                    self.results['actions'].append('Archived image %s to %s' % (image_name, self.archive_path))
                     try:
                         image_tar = open(self.archive_path, 'w')
                         image_tar.write(image.data)
                         image_tar.close()
                     except Exception, exc:
-                        self.fail("Error writing image archive {0} - {1}".format(self.archive_path, str(exc)))
+                        self.fail("Error writing image archive %s - %s" % (self.archive_path, str(exc)))
 
                 self.results['changed'] = True
                 image = self.client.find_image(name=name, tag=tag)
@@ -380,15 +378,13 @@ class ImageManager(DockerBaseClass):
         if registry:
             config = auth.load_config()
             if not auth.resolve_authconfig(config, registry):
-                self.fail("Error: configuration for {0} not found. Try logging into {0} first.".format(registry))
+                self.fail("Error: configuration for %s not found. Try logging into %s first." % registry)
 
         try:
-            self.log("pushing image {0}".format(repository))
+            self.log("pushing image %s" % (repository))
             status = None
             if not self.check_mode:
-                self.results['actions'].append("Pushed image {0} to {1}:{2}".format(self.name,
-                                                                                    self.repository,
-                                                                                    self.tag))
+                self.results['actions'].append("Pushed image %s to %s:%s" % (self.name, self.repository, self.tag))
                 for line in self.client.push(repository, tag=tag, stream=True):
                     response = json.loads(line)
                     self.log(response, pretty_print=True)
@@ -403,38 +399,43 @@ class ImageManager(DockerBaseClass):
             self.results['image']['push_status'] = status
         except Exception, exc:
             if re.search(r'unauthorized', str(exc)):
-                self.fail("Error pushing image {0}: {1}. Does the repository exist?".format(repository, str(exc)))
-            self.fail("Error pushing image {0}: {1}".format(repository, str(exc)))
+                self.fail("Error pushing image %s: %s. Does the repository exist?" % (repository, str(exc)))
+            self.fail("Error pushing image %s: %s" % (repository, str(exc)))
 
     def tag_image(self, name, tag, repository, force=False, push=False):
         '''
         Tag an image into a repository.
 
         :param name: name of the image. required.
-        :param tag: image tag. required.
+        :param tag: image tag.
         :param repository: path to the repository. required.
         :param force: bool. force tagging, even it image already exists with the repository path.
         :param push: bool. push the image once it's tagged.
         :return: None
         '''
-        image = self.client.find_image(name=repository, tag=tag)
+        repo, repo_tag = utils.parse_repository_tag(repository)
+        image = self.client.find_image(name=repo, tag=repo_tag)
+        found = 'found' if image else 'not found'
+        self.log("image %s was %s" % (repo, found))
         if not image or force:
             try:
-                self.log("tagging {0} to {1} with tag {2}".format(name, repository, tag))
+                self.log("tagging %s:%s to %s" % (name, tag, repository))
                 self.results['changed'] = True
                 if not self.check_mode:
-                    self.results['actions'].append("Tagged image {0} to {1}:{2}".format(name, repository, tag))
-                    tag_status = self.client.tag(name, repository, tag=tag, force=force)
+                    self.results['actions'].append("Tagged image %s:%s to %s" % (name, tag, repository))
+                    # Finding the image does not always work, especially running a localhost registry. In those
+                    # cases, if we don't set force=True, it errors.
+                    tag_status = self.client.tag(name, repository, tag=tag, force=True)
                     if not tag_status:
                         raise Exception("Tag operation failed.")
                 image = self.client.find_image(name=repository, tag=tag)
                 if image:
                     self.results['image'] = image
             except Exception, exc:
-                self.fail("Error: failed to tag image {0} - {1}".format(name, str(exc)))
+                self.fail("Error: failed to tag image %s - %s" % (name, str(exc)))
 
             if push:
-                self.log("push {0} with tag {1}".format(repository, tag))
+                self.log("push %s with tag %s" % (repository, tag))
                 self.push_image(repository, tag)
 
 

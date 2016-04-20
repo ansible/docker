@@ -1,17 +1,75 @@
-- name: Start docker registry
+- name: Recreate secure docker registry
   docker_container:
-    name: registry 
+    name: registry
     image: registry:2
     volumes:
       - "./roles/create_local_registry/files/certs:/certs"
+      - "./roles/create_local_registry/files/auth:/auth"
     env:
       REGISTRY_HTTP_TLS_CERTIFICATE: /certs/domain.crt
       REGISTRY_HTTP_TLS_KEY: /certs/domain.key
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "Registry Realm"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
     ports:
       - 5000:5000
     detach: yes
-    debug: yes
+    recreate: yes
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}" 
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- name: Should be idempotent 
+  docker_container:
+    name: registry
+    image: registry:2
+    volumes:
+      - "./roles/create_local_registry/files/certs:/certs"
+      - "./roles/create_local_registry/files/auth:/auth"
+    env:
+      REGISTRY_HTTP_TLS_CERTIFICATE: /certs/domain.crt
+      REGISTRY_HTTP_TLS_KEY: /certs/domain.key
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "Registry Realm"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+    ports:
+      - 5000:5000
+    detach: yes
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}" 
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that: not output.changed
+
+- name: Log into the new registry
+  docker_login:
+    registry_url: localhost:5000 
+    username: testuser
+    password: testpassword
+    email: testuer@yahoo.com
+    debug: "{{ playbook_debug }}"
     log_mode: file
   register: output
 
 - debug: var=output
+  when: playbook_debug
+
+- name: Tag and push an image
+  docker_images:
+    name: ubuntu
+    tag: "14.04"
+    repository: localhost:5000/chouseknecht/ubuntu
+    push: yes 
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}" 
+  register: output
+
+- debug: var=output
+  when: playbook_debug

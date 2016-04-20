@@ -1,5 +1,0 @@
-- name: Try letsencrypt
-  hosts: registry
-  become: yes
-  roles:
-    - { role: CorbanR.letsencrypt, domain: "{{ inventory_hostname }}", letsencrypt_email: house@redhat.com, server_type: nginx }  

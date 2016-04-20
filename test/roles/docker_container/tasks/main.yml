@@ -1,5 +1,5 @@
 - name: Remove ubuntu image
-  docker_image:
+  docker_images:
     state: absent
     name: ubuntu
     tag: 14.04

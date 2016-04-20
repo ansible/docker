@@ -35,13 +35,4 @@
 
 - assert:
     that:
-      - "'Succeeded' in output.results.Status"
-
-- name: Should have valid configuration file
-  docker_config:
-    username: chouseknecht
-    password: xnvDhTjSdcIB
-    email: house@redhat.com
-  register: output
-
-- debug: var=output
+      - "'Succeeded' in output.login_result.Status"

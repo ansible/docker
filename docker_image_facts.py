@@ -17,15 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
-
-from ansible.module_utils.docker_common import *
-
-try:
-    from docker import utils
-except ImportError:
-    # missing docker-py handled in ansible.module_utils.docker
-    pass
-
 DOCUMENTATION = '''
 ---
 module: docker_image_facts
@@ -38,7 +29,7 @@ description:
 options:
   name:
     description:
-      - An image name or a list of image names. Name format will be name:tag or repository/name:tag, where tag is
+      - An image name or a list of image names. Name format will be name[:tag] or repository/name[:tag], where tag is
         optional. If a tag is not provided, 'latest' will be used.
     default: null
     required: true
@@ -48,7 +39,8 @@ requirements:
   - "docker-py"
 
 authors:
-  - Chris Houseknecht (house@redhat.com)
+  - Chris Houseknecht (@chouseknecht)
+  - James Tanner (@jtanner)
 
 '''
 
@@ -66,14 +58,8 @@ EXAMPLES = '''
 '''
 
 RETURN = '''
-changed:
-    description:
-      - Whether or not a change was made. Will always be false.
-    returned: always
-    type: bool
-    sample: False
-Results:
-    description: Facts about the current state of the object.
+images:
+    description: Facts for the selected images.
     returned: always
     type: dict
     sample:[
@@ -164,6 +150,14 @@ Results:
     ]
 '''
 
+from ansible.module_utils.docker_common import *
+
+try:
+    from docker import auth
+    from docker import utils
+except ImportError:
+    # missing docker-py handled in docker_common
+    pass
 
 class ImageManager(DockerBaseClass):
 
@@ -174,8 +168,12 @@ class ImageManager(DockerBaseClass):
         self.client = client
         self.results = results
         self.name = self.client.module.params.get('name')
-        self.log("Gathering facts for images: {0}".format(str(self.name)))
-        self.results['results']['images'] = self.get_facts()
+        self.log("Gathering facts for images: %s" % (str(self.name)))
+
+        if self.name:
+            self.results['images'] = self.get_facts()
+        else:
+            self.results['images'] = self.get_all_images()
 
     def fail(self, msg):
         self.client.fail(msg)
@@ -197,17 +195,27 @@ class ImageManager(DockerBaseClass):
             repository, tag = utils.parse_repository_tag(name)
             if not tag:
                 tag = 'latest'
-            self.log('Fetching image {0}:{1}'.format(repository, tag))
+            self.log('Fetching image %s:%s' % (repository, tag))
             image = self.client.find_image(name=repository, tag=tag)
             if image:
                 results.append(image)
+        return results
 
+    def get_all_images(self):
+        results = []
+        images = self.client.images()
+        for image in images:
+            try:
+                inspection = self.client.inspect_image(image['Id'])
+            except Exception, exc:
+                self.fail("Error inspecting image %s - %s" % (image['Id'], str(exc)))
+            results.append(inspection)
         return results
 
 
 def main():
     argument_spec = dict(
-        name=dict(type='list', required=True),
+        name=dict(type='list'),
         )
 
     client = AnsibleDockerClient(
@@ -216,7 +224,7 @@ def main():
 
     results = dict(
         changed=False,
-        results=dict()
+        images=[]
     )
 
     ImageManager(client, results)

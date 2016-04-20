@@ -587,7 +587,7 @@ class TaskParameters(DockerBaseClass):
                 try:
                     setattr(self, param_name, human_to_bytes(client.module.params.get(param_name)))
                 except ValueError, exc:
-                    self.fail("Failed to convert {0} to bytes: {1}".format(param_name, exc))
+                    self.fail("Failed to convert %s to bytes: %s" % (param_name, exc))
 
         self.ports = self._parse_exposed_ports()
         self.published_ports = self._parse_publish_ports()
@@ -840,7 +840,7 @@ class TaskParameters(DockerBaseClass):
             try:
                 results.append(Ulimit(**limits))
             except ValueError, exc:
-                self.fail("Error parsing ulimits value {0} - {1}".format(limit, exc))
+                self.fail("Error parsing ulimits value %s - %s" % (limit, exc))
         return results
 
     def _parse_log_config(self):
@@ -861,7 +861,7 @@ class TaskParameters(DockerBaseClass):
         try:
             return LogConfig(**options)
         except ValueError, exc:
-            self.fail('Error parsing logging options - {0}'.format(exc))
+            self.fail('Error parsing logging options - %s' % (exc))
 
 
 class Container(DockerBaseClass):
@@ -984,26 +984,26 @@ class Container(DockerBaseClass):
 
         differences = []
         for key, value in config_mapping.iteritems():
-            self.log('check differences {0} {1} vs {2}'.format(key, getattr(self.parameters, key), str(value)))
+            self.log('check differences %s %s vs %s' % (key, getattr(self.parameters, key), str(value)))
             if getattr(self.parameters, key, None) is not None:
                 if isinstance(getattr(self.parameters, key), list) and isinstance(value, list):
                     if len(getattr(self.parameters, key)) > 0 and isinstance(getattr(self.parameters, key)[0], dict):
                         # compare list of dictionaries
-                        self.log("comparing list of dict: {0}".format(key))
+                        self.log("comparing list of dict: %s" % key)
                         match = self._compare_dictionary_lists(getattr(self.parameters, key), value)
                     else:
                         # compare two lists. Is list_a in list_b?
-                        self.log("comparing lists: {0}".format(key))
+                        self.log("comparing lists: %s" % key)
                         set_a = set(getattr(self.parameters, key))
                         set_b = set(value)
                         match = (set_a <= set_b)
                 elif isinstance(getattr(self.parameters, key), dict) and isinstance(value, dict):
                     # compare two dicts
-                    self.log("comparing two dicts: {0}".format(key))
+                    self.log("comparing two dicts: %s" % key)
                     match = self._compare_dicts(getattr(self.parameters, key), value)
                 else:
                     # primitive compare
-                    self.log("primitive compare: {0}".format(key))
+                    self.log("primitive compare: %s" % key)
                     match = (getattr(self.parameters, key) == value)
 
                 if not match:
@@ -1134,13 +1134,14 @@ class Container(DockerBaseClass):
 
     def _get_expected_entrypoint(self, image):
         self.log('_get_expected_entrypoint')
-
         if isinstance(self.parameters.entrypoint, list):
             entrypoint = self.parameters.entrypoint
         else:
             entrypoint = []
         if image and image['ContainerConfig'].get('Entrypoint'):
             entrypoint = list(set(entrypoint + image['ContainerConfig'].get('Entrypoint')))
+        if len(entrypoint) == 0:
+            return None
         return entrypoint
 
     def _get_expected_ports(self):
@@ -1149,7 +1150,7 @@ class Container(DockerBaseClass):
         expected_bound_ports = {}
         for container_port, config in self.parameters.published_ports.iteritems():
             if isinstance(container_port, int):
-                container_port = "{0}/tcp".format(container_port)
+                container_port = "%s/tcp" % container_port
             if len(config) == 1:
                 expected_bound_ports[container_port] = [{'HostIp': "0.0.0.0", 'HostPort': ""}]
             elif isinstance(config[0], tuple):
@@ -1167,7 +1168,7 @@ class Container(DockerBaseClass):
         self.log(self.parameters.links, pretty_print=True)
         exp_links = []
         for link, alias in self.parameters.links.iteritems():
-            exp_links.append("/{0}:{1}/{2}".format(link, ('/' + self.parameters.name), alias))
+            exp_links.append("/%s:%s/%s" % (link, ('/' + self.parameters.name), alias))
         return exp_links
 
     def _get_expected_volumes(self, image):
@@ -1183,7 +1184,7 @@ class Container(DockerBaseClass):
                 else:
                     host, container, mode = vol.split(':') + ['rw']
                 # flip to container first
-                param_vols.append("{0}:{1}:{2}".format(host, container, mode))
+                param_vols.append("%s:%s:%s" % (host, container, mode))
         return list(set(image_vols + param_vols))
 
     def _get_volumes_from_binds(self, volumes):
@@ -1208,7 +1209,7 @@ class Container(DockerBaseClass):
                 if isinstance(config, dict) and config.get('bind'):
                     container_path = config.get('bind')
                     mode = config.get('mode', 'rw')
-                    results.append("{0}:{1}:{2}".format(host_path, container_path, mode))
+                    results.append("%s:%s:%s" % (host_path, container_path, mode))
         return results
 
     def _get_expected_env(self, image):
@@ -1238,15 +1239,15 @@ class Container(DockerBaseClass):
         if isinstance(config_ulimits[0], Ulimit):
             for limit in config_ulimits:
                 if limit.hard:
-                    results.append("{0}:{1}".format(limit.name, limit.soft, limit.hard))
+                    results.append("%s:%s" % (limit.name, limit.soft, limit.hard))
                 else:
-                    results.append("{0}:{1}".format(limit.name, limit.soft))
+                    results.append("%s:%s" % (limit.name, limit.soft))
         else:
             for limit in config_ulimits:
                 if limit.get('hard'):
-                    results.append("{0}:{1}".format(limit.get('name'), limit.get('soft'), limit.get('hard')))
+                    results.append("%s:%s" % (limit.get('name'), limit.get('hard')))
                 else:
-                    results.append("{0}:{1}".format(limit.get('name'), limit.get('soft')))
+                    results.append("%s:%s" % (limit.get('name'), limit.get('soft')))
         return results
 
     def _get_expected_cmd(self):
@@ -1267,7 +1268,7 @@ class Container(DockerBaseClass):
             return None
         results = []
         for key, value in getattr(self.parameters, param_name).iteritems():
-            results.append("{0}{1}{2}".format(key, join_with, value))
+            results.append("%s%s%s" % (key, join_with, value))
         return results
 
 
@@ -1365,7 +1366,7 @@ class ContainerManager(DockerBaseClass):
             if not image or self.parameters.pull:
                 self.log("Pull the image.")
                 image = self.client.pull_image(repository, tag)
-                self.results['actions'].append(dict(pulled_image="{0}:{1}".format(repository, tag)))
+                self.results['actions'].append(dict(pulled_image="%s:%s" % (repository, tag)))
                 self.results['changed'] = True
         self.log("image")
         self.log(image, pretty_print=True)
@@ -1410,21 +1411,21 @@ class ContainerManager(DockerBaseClass):
                 self.results['changed'] = True
                 return self._get_container(new_container['Id'])
             except Exception, exc:
-                self.fail("Error creating container: {0}".format(str(exc)))
+                self.fail("Error creating container: %s" % str(exc))
 
     def container_start(self, container_id):
-        self.log("start container {0}".format(container_id))
+        self.log("start container %s" % (container_id))
         if not self.check_mode:
             try:
                 self.client.start(container=container_id)
                 self.results['actions'].append(dict(started=container_id))
                 self.results['changed'] = True
             except Exception, exc:
-                self.fail("Error starting container {0}: {1}".format(container_id, str(exc)))
+                self.fail("Error starting container %s: %s" % (container_id, str(exc)))
         return self._get_container(container_id)
 
     def container_remove(self, container_id, v=False, link=False, force=False):
-        self.log("remove container container:{0} v:{1} link:{1} force{2}".format(container_id, v, link, force))
+        self.log("remove container container:%s v:%s link:%s force%s" % (container_id, v, link, force))
         if not self.check_mode:
             volume_state = (True if self.parameters.keep_volumes else False)
             try:
@@ -1433,11 +1434,11 @@ class ContainerManager(DockerBaseClass):
                 self.results['changed'] = True
                 return response
             except Exception, exc:
-                self.fail("Error removing container {0}: {1}".format(container_id, str(exc)))
+                self.fail("Error removing container %s: %s" % (container_id, str(exc)))
 
     def container_update(self, container_id, update_parameters):
         if update_parameters:
-            self.log("update container {0}".format(container_id))
+            self.log("update container %s" % (container_id))
             self.log(update_parameters, pretty_print=True)
             if not self.check_mode and callable(getattr(self.client, 'update_container')):
                 try:
@@ -1445,7 +1446,7 @@ class ContainerManager(DockerBaseClass):
                     self.results['actions'].append(dict(updated=container_id, update_parameters=update_parameters))
                     self.results['changed'] = True
                 except Exception, exc:
-                    self.fail("Error updating container {0}: {1}".format(container_id, str(exc)))
+                    self.fail("Error updating container %s: %s" % (container_id, str(exc)))
         return self._get_container(container_id)
 
     def container_kill(self, container_id):
@@ -1459,7 +1460,7 @@ class ContainerManager(DockerBaseClass):
                 self.results['changed'] = True
                 return response
             except Exception, exc:
-                self.fail("Error killing container {0}: {1}".format(container_id, exc))
+                self.fail("Error killing container %s: %s" % (container_id, exc))
 
     def container_stop(self, container_id):
         if self.parameters.force_kill:
@@ -1476,7 +1477,7 @@ class ContainerManager(DockerBaseClass):
                 self.results['changed'] = True
                 return response
             except Exception, exc:
-                self.fail("Error stopping container {0}: {1}".format(container_id, str(exc)))
+                self.fail("Error stopping container %s: %s" % (container_id, str(exc)))
 
     def connect_container_to_network(self, container_id, network    ):
         pass

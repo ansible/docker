@@ -1,45 +1,14 @@
 - name: Provision registry host
   hosts: localhost
   connection: local
-  vars_files:
-    - docker_testing_vault.yml
-  environment:
-    AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
-    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
   roles:
-    - { role: create_registry, when: deploy_registry }
-
-- name: Deploy docker registry
-  hosts: registry
-  become: yes
-  vars:
-    nginx_vhosts:
-      - listen: "80 default_server"
-        server_name: registry-testing.ansible.com
-        root: "/var/www/registry"
-        index: "index.html index.htm"
-        access_log: "/var/log/nginx/access.log"
-        error_log: "/var/log/nginx/error.log"
-        extra_parameters: |
-          location /v2 {
-              proxy_pass http://localhost:5000/v2;
-              proxy_set_header Host      $host;
-              proxy_set_header X-Real-IP $remote_addr;
-          }
-  vars_files:
-    - docker_testing_vault.yml
-
-  roles:
-    - { role: deploy_registry, when: deploy_registry }
-    - { role: geerlingguy.letsencrypt, when: deploy_registry }
-    - { role: geerlingguy.nginx, when: deploy_registry }
-    - { role: secure_registry, when: deploy_registry }
 
 - name: Run docker integration tests
   hosts: localhost
   connection: local
   roles:
-    - { role: docker_container, when: "run_test in ['all', 'container']" } 
+    - { role: create_local_registry, when: "run_test in ['all', 'registry']" }
+   #  - { role: docker_container, when: "run_test in ['all', 'container']" } 
     - { role: docker_login, when: "run_test in ['all', 'login']" }
     - { role: docker_image, when: "run_test in ['all', 'image']" }
     - { role: docker_hello_world, when: "run_test in ['all', 'hello_world']" }
