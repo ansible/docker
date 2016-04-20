@@ -683,7 +683,7 @@ class TaskParameters(DockerBaseClass):
 
         host_config_params=dict(
             port_bindings='published_ports',
-            publish_all_ports='pubish_all_ports',
+            publish_all_ports='publish_all_ports',
             links='links',
             privileged='privileged',
             dns='dns_servers',
