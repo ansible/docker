@@ -290,7 +290,7 @@ class AnsibleDockerClient(Client):
             if use_tls == 'encrypt':
                 params['tls'] = True
             if use_tls == 'verify':
-                params['verify'] = True
+                params['tls_verify'] = True
 
         result = dict(
             docker_host=self._get_value('docker_host', params['docker_host'], 'DOCKER_HOST',

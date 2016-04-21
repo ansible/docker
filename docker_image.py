@@ -477,7 +477,8 @@ def main():
         rm=dict(type='bool', default=True),
         state=dict(type='str', choices=['absent', 'present'], default='present'),
         tag=dict(type='str', default='latest'),
-        )
+        use_tls=dict(type='str', default='no', choices=['no', 'encrypt', 'verify'])
+    )
 
     client = AnsibleDockerClient(
         argument_spec=argument_spec,
