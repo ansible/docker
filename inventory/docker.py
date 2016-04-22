@@ -685,19 +685,20 @@ class DockerInventory(object):
                 tls = host.get('tls') or def_tls or self._args.tls or self._env_args.tls or DEFAULT_TLS
                 ssl_version = host.get('ssl_version') or def_ssl_version or self._args.ssl_version or \
                     self._env_args.ssl_version
+
                 cert_path = host.get('cert_path') or def_cert_path or self._args.cert_path or \
                     self._env_args.cert_path
-                if cert_path == self._env_args.cert_path:
+                if cert_path and cert_path == self._env_args.cert_path:
                     cert_path = os.path.join(cert_path, 'cert.pem')
 
                 cacert_path = host.get('cacert_path') or def_cacert_path or self._args.cacert_path or \
                     self._env_args.cert_path
-                if cacert_path == self._env_args.cert_path:
+                if cacert_path and cacert_path == self._env_args.cert_path:
                     cacert_path = os.path.join(cacert_path, 'ca.pem')
 
                 key_path = host.get('key_path') or def_key_path or self._args.key_path or \
                     self._env_args.cert_path
-                if key_path == self._env_args.cert_path:
+                if key_path and key_path == self._env_args.cert_path:
                     key_path = os.path.join(key_path, 'key.pem')
 
                 timeout = host.get('timeout') or def_timeout or self._args.timeout or self._env_args.timeout or \
@@ -730,15 +731,19 @@ class DockerInventory(object):
             tls_verify = def_tls_verify or self._args.tls_verify or self._env_args.tls_verify or DEFAULT_TLS_VERIFY
             tls = def_tls or self._args.tls or self._env_args.tls or DEFAULT_TLS
             ssl_version = def_ssl_version or self._args.ssl_version or self._env_args.ssl_version
+
             cert_path = def_cert_path or self._args.cert_path or self._env_args.cert_path
-            if cert_path == self._env_args.cert_path:
+            if cert_path and cert_path == self._env_args.cert_path:
                     cert_path = os.path.join(cert_path, 'cert.pem')
+
             cacert_path = def_cacert_path or self._args.cacert_path or self._env_args.cert_path
-            if cacert_path == self._env_args.cert_path:
+            if cacertpath and cacert_path == self._env_args.cert_path:
                 cacert_path = os.path.join(cacert_path, 'ca.pem')
+
             key_path = def_key_path or self._args.key_path or self._env_args.cert_path
-            if key_path == self._env_args.cert_path:
+            if key_path and key_path == self._env_args.cert_path:
                 key_path = os.path.join(key_path, 'key.pem')
+
             timeout = def_timeout or self._args.timeout or self._env_args.timeout or DEFAULT_TIMEOUT_SECONDS
             default_ip = def_ip or self._args.default_ip_address or DEFAULT_IP
             default_ssh_port = def_ssh_port or self._args.private_ssh_port or DEFAULT_SSH_PORT
