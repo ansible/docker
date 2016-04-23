@@ -19,7 +19,7 @@
   when: playbook_debug
 
 - name: Build the mysql image
-  docker_images:
+  docker_image:
     path: ./roles/docker_lnmp_stack/files/mysql
     name: lnmp_mysql
     tag: v1
@@ -30,10 +30,10 @@
 
 - assert:
     that: not output.changed
-  when: image_facts.results | length == 2
+  when: image_facts.images | length == 2
 
 - name: Build the nginx image
-  docker_images:
+  docker_image:
     path: ./roles/docker_lnmp_stack/files/nginx
     name: lnmp_nginx
     tag: v1
@@ -44,12 +44,13 @@
 
 - assert:
     that: not output.changed
-  when: image_facts.results | length == 2
+  when: image_facts.images | length == 2
 
 - name: Start mysql container
   docker_container:
     name: lnmp_mysql
     detach: yes
+    recreate: yes
     volumes:
       - /tmp/lnmp/mysql-data:/var/lib/mysql
     image: lnmp_mysql:v1
@@ -65,11 +66,13 @@
     mysqlip: "{{ output['container']['NetworkSettings']['IPAddress'] }}"
 
 - name: Wait for mysqld to start
-  local_action: wait_for port=3306 host="{{ mysqlip }}" timeout=60
+  local_action: wait_for port=3306 host="{{ inventory_hostname }}" timeout=60
+  # local_action: wait_for port=3306 host="{{ mysqlip }}" timeout=60
   when: output.changed
 
 - name: Wait for the petstore db to be created
-  shell: mysql -h "{{ mysqlip }}" -u petstore -predhat12345 -D petstore -e 'show tables'
+  shell: mysql -h "{{ inventory_hostname }}" -u petstore -predhat12345 -D petstore -e 'show tables'
+  # shell: mysql -h "{{ mysqlip }}" -u petstore -predhat12345 -D petstore -e 'show tables'
   register: tables
   until: "tables.rc == 0"
   retries: 10

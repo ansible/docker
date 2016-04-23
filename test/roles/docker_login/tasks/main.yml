@@ -23,9 +23,9 @@
 
 - name: Should log into Docker hub
   docker_login:
-    username: chouseknecht
-    password: xnvDhTjSdcIB
-    email: house@redhat.com
+    username: "{{ dockerhub_username }}" 
+    password: "{{ dockerhub_password }}" 
+    email: "{{ dockerhub_email }}" 
     debug: "{{ playbook_debug }}"
     log_mode: "{{ playbook_debug_mode }}"
   register: output

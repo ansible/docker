@@ -1,5 +1,5 @@
 - name: Remove image
-  docker_images:
+  docker_image:
     name: pacur/centos-7
     state: absent
     debug: "{{ playbook_debug }}"
@@ -24,7 +24,7 @@
     that: output.images | length == 0
 
 - name: Pull pacur/centos-7
-  docker_images:
+  docker_image:
     name: pacur/centos-7
     debug: "{{ playbook_debug }}"
     log_mode: "{{ playbook_debug_mode }}"
@@ -32,6 +32,9 @@
 
 - debug: var=output
   when: playbook_debug
+
+- assert:
+    that: "output.image.push_status is not defined"
 
 - name: Get image facts
   docker_image_facts:
@@ -50,7 +53,7 @@
 - file: path=my_sintra.tar state=absent
 
 - name: Remove image sinatra
-  docker_images:
+  docker_image:
     state: absent
     name: mysinatra
     tag: v1
@@ -60,11 +63,13 @@
   when: playbook_debug
 
 - name: Build and archive image
-  docker_images:
+  docker_image:
     path: ./roles/docker_image/files/sinatra
     name: mysinatra
     tag: v1
     archive_path: my_sinatra.tar
+    debug: "{{ playbook_debug }}"
+    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -93,7 +98,7 @@
     that: output.stat.exists
 
 - name: Archive_image
-  docker_images:
+  docker_image:
     name: mysinatra
     tag: v1
     archive_path: my_sinatra.tar
@@ -109,7 +114,7 @@
     that: not output.changed
 
 - name: Remove image sinatra
-  docker_images:
+  docker_image:
     state: absent
     name: mysinatra
     tag: v1
@@ -131,7 +136,7 @@
     that: output.images | length == 0
 
 - name: Load image from archive
-  docker_images:
+  docker_image:
     name: mysinatra
     tag: v1
     load_path: my_sinatra.tar
@@ -153,3 +158,34 @@
 - name: Sinatra image should be present
   assert:
     that: output.images | length == 1
+
+- name: Log into docker hub
+  docker_login:
+    username: "{{ dockerhub_username }}"
+    password: "{{ dockerhub_password }}"
+    email: "{{ dockerhub_email }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- name: Remove tagged image
+  docker_image:
+    name: chouseknecht/mysinatra
+    tag: v1
+    state: absent
+
+- name: Tag and push sinatra to docker_hub
+  docker_image:
+    name: mysinatra
+    tag: v1
+    repository: chouseknecht/mysinatra 
+    debug: "{{ playbook_debug }}" 
+    log_mode: "{{ playbook_debug_mode }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that: "output.image.push_status is defined"

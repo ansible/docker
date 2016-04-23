@@ -1,11 +1,8 @@
-- name: Provision registry host
-  hosts: localhost
-  connection: local
-  roles:
-
 - name: Run docker integration tests
   hosts: localhost
   connection: local
+  vars_files:
+    - docker_testing_vault.yml
   roles:
     - { role: create_local_registry, when: "run_test in ['all', 'registry']" }
    #  - { role: docker_container, when: "run_test in ['all', 'container']" } 

@@ -1,1 +1,6 @@
+[local]
 localhost
+
+[local:vars]
+docker_host=192.168.99.100
+docker_machine=yes

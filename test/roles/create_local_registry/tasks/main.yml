@@ -62,14 +62,16 @@
   when: playbook_debug
 
 - name: Tag and push an image
-  docker_images:
+  docker_image:
     name: ubuntu
     tag: "14.04"
     repository: localhost:5000/chouseknecht/ubuntu
-    push: yes 
     debug: "{{ playbook_debug }}"
     log_mode: "{{ playbook_debug_mode }}" 
   register: output
 
 - debug: var=output
   when: playbook_debug
+
+- assert:
+    that: "output.image.push_status is defined"
