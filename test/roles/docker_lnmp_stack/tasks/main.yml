@@ -1,7 +1,15 @@
-#- name: Cleanup old data volume data [if exists]
-#  file: path=/tmp/lnmp/mysql-data state=absent
-#  become: True
-#  become_user: root
+- name: Remove existing containers [if exists] 
+  docker_container:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - lnmp_mysql
+    - lnmp_nginx
+     
+- name: Cleanup old data volume data [if exists]
+  file: path=/tmp/lnmp/mysql-data state=absent
+  become: True
+  become_user: root
 
 - name: Create data volume
   file: path=/tmp/lnmp/mysql-data state=directory
@@ -12,14 +20,13 @@
       - lnmp_mysql:v1
       - lnmp_nginx:v1
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: image_facts
 
 - debug: var=image_facts
   when: playbook_debug
 
 - name: Build the mysql image
-  docker_images:
+  docker_image:
     path: ./roles/docker_lnmp_stack/files/mysql
     name: lnmp_mysql
     tag: v1
@@ -30,10 +37,10 @@
 
 - assert:
     that: not output.changed
-  when: image_facts.results | length == 2
+  when: image_facts.images | length == 2
 
 - name: Build the nginx image
-  docker_images:
+  docker_image:
     path: ./roles/docker_lnmp_stack/files/nginx
     name: lnmp_nginx
     tag: v1
@@ -44,7 +51,7 @@
 
 - assert:
     that: not output.changed
-  when: image_facts.results | length == 2
+  when: image_facts.images | length == 2
 
 - name: Start mysql container
   docker_container:
@@ -54,7 +61,9 @@
       - /tmp/lnmp/mysql-data:/var/lib/mysql
     image: lnmp_mysql:v1
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
+    ports:
+      - 3306:3306
+    recreate: yes
   register: output
 
 - debug: var=output
@@ -69,7 +78,7 @@
   when: output.changed
 
 - name: Wait for the petstore db to be created
-  shell: mysql -h "{{ mysqlip }}" -u petstore -predhat12345 -D petstore -e 'show tables'
+  shell: mysql -h "127.0.0.1" -u petstore -predhat12345 -D petstore -e 'show tables'
   register: tables
   until: "tables.rc == 0"
   retries: 10
@@ -94,7 +103,6 @@
     links:
       - lnmp_mysql:lnmp_mysql
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
