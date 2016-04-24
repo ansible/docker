@@ -19,7 +19,7 @@ Docker Host Machine
 ;;;;;;;;;;;;;;;;;;;
 
 If you do not already have a Docker host machine, may we suggest `Atomic ADB <https://github.com/projectatomic/adb-atomic-developer-bundle>`_.
-It's simple to get up and running on Linux, Mac OSX and Windows. Just follow their `install instrutions <https://github.com/projectatomic/adb-atomic-developer-bundle#how-do-i-install-and-run-the-atomic-developer-bundle-adb>`_ to get started.
+It's simple to get up and running on Linux, Mac OSX and Windows. Just follow the `install instrutions <https://github.com/projectatomic/adb-atomic-developer-bundle#how-do-i-install-and-run-the-atomic-developer-bundle-adb>`_ to get started.
 
 Environment Setup
 ;;;;;;;;;;;;;;;;;
