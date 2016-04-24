@@ -9,7 +9,6 @@
     password: xnvDhTjSdcIB
     email: foo
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
   ignore_errors: yes
 
@@ -27,7 +26,6 @@
     password: "{{ dockerhub_password }}" 
     email: "{{ dockerhub_email }}" 
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output

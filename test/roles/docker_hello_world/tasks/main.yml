@@ -22,7 +22,6 @@
     name: hello-world
     image: hello-world
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -39,7 +38,6 @@
     name: hello-world
     image: hello-world
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output

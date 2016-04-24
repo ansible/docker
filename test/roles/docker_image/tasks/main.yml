@@ -3,7 +3,6 @@
     name: pacur/centos-7
     state: absent
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -13,7 +12,6 @@
   docker_image_facts:
     name: pacur/centos-7
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -27,7 +25,6 @@
   docker_image:
     name: pacur/centos-7
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -40,7 +37,6 @@
   docker_image_facts:
     name: pacur/centos-7
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -69,7 +65,6 @@
     tag: v1
     archive_path: my_sinatra.tar
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -79,7 +74,6 @@
   docker_image_facts:
     name: mysinatra:v1
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -103,7 +97,6 @@
     tag: v1
     archive_path: my_sinatra.tar
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -141,7 +134,6 @@
     tag: v1
     load_path: my_sinatra.tar
     debug: "{{ playbook_debug }}"
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
@@ -181,7 +173,6 @@
     tag: v1
     repository: chouseknecht/mysinatra 
     debug: "{{ playbook_debug }}" 
-    log_mode: "{{ playbook_debug_mode }}"
   register: output
 
 - debug: var=output
