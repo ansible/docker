@@ -938,7 +938,7 @@ class Container(DockerBaseClass):
     @property
     def running(self):
         if self.container and self.container.get('State'):
-            if self.container['State']['Running'] and self.container['State']['Status'] == 'running':
+            if self.container['State'].get('Running') and not self.container['State'].get('Ghost', False):
                 return True
         return False
 
