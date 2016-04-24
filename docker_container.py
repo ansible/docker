@@ -232,12 +232,12 @@ options:
       - none
     default: null
     required: false
-  networks:
-    description:
-      - "Dictionary of networks to which the container will be connected. The dictionary must have a name key (the name of the network).
-        Optional keys include: aliases (a list of container aliases), and links (a list of links in the format C(container_name:alias))."
-    default: null
-    required: false
+  # networks:
+  #   description:
+  #     - "Dictionary of networks to which the container will be connected. The dictionary must have a name key (the name of the network).
+  #       Optional keys include: aliases (a list of container aliases), and links (a list of links in the format C(container_name:alias))."
+  #   default: null
+  #   required: false
   oom_killer:
     description:
       - Whether or not to disable OOM Killer for the container.
@@ -1386,7 +1386,8 @@ class ContainerManager(DockerBaseClass):
     def absent(self):
         container = Container(self.client.get_container(self.parameters.name), self.parameters)
         if container.found:
-            # TODO if running stop/kill
+            if container.running:
+                self.container_stop(container.id)
             self.container_remove(container.Id)
 
     def fail(self, msg):
@@ -1459,71 +1460,74 @@ class ContainerManager(DockerBaseClass):
 
     def container_start(self, container_id):
         self.log("start container %s" % (container_id))
+        self.results['actions'].append(dict(started=container_id))
+        self.results['changed'] = True
         if not self.check_mode:
             try:
                 self.client.start(container=container_id)
-                self.results['actions'].append(dict(started=container_id))
-                self.results['changed'] = True
             except Exception, exc:
                 self.fail("Error starting container %s: %s" % (container_id, str(exc)))
         return self._get_container(container_id)
 
     def container_remove(self, container_id, v=False, link=False, force=False):
         self.log("remove container container:%s v:%s link:%s force%s" % (container_id, v, link, force))
+        self.results['actions'].append(dict(removed=container_id, volume_state=volume_state))
+        self.results['changed'] = True
+        response = None
         if not self.check_mode:
             volume_state = (True if self.parameters.keep_volumes else False)
             try:
                 response = self.client.remove_container(container_id, v=volume_state, link=link, force=force)
-                self.results['actions'].append(dict(removed=container_id, volume_state=volume_state))
-                self.results['changed'] = True
-                return response
             except Exception, exc:
                 self.fail("Error removing container %s: %s" % (container_id, str(exc)))
+        return response
 
     def container_update(self, container_id, update_parameters):
         if update_parameters:
             self.log("update container %s" % (container_id))
             self.log(update_parameters, pretty_print=True)
+            self.results['actions'].append(dict(updated=container_id, update_parameters=update_parameters))
+            self.results['changed'] = True
             if not self.check_mode and callable(getattr(self.client, 'update_container')):
                 try:
                     self.client.update_container(container_id, **update_parameters)
-                    self.results['actions'].append(dict(updated=container_id, update_parameters=update_parameters))
-                    self.results['changed'] = True
                 except Exception, exc:
                     self.fail("Error updating container %s: %s" % (container_id, str(exc)))
         return self._get_container(container_id)
 
     def container_kill(self, container_id):
+        self.results['actions'].append(dict(killed=container_id, signal=self.parameters.kill_signal))
+        self.results['changed'] = True
+        response = None
         if not self.check_mode:
             try:
                 if self.parameters.kill_signal:
                     response = self.client.kill(container_id, signal=self.parameters.kill_signal)
                 else:
                     response = self.client.kill(container_id)
-                self.results['actions'].append(dict(killed=container_id, signal=self.parameters.kill_signal))
-                self.results['changed'] = True
-                return response
             except Exception, exc:
                 self.fail("Error killing container %s: %s" % (container_id, exc))
+        return response
 
     def container_stop(self, container_id):
         if self.parameters.force_kill:
             self.container_kill(container_id)
             return
-
+        self.results['actions'].append(dict(stopped=container_id, timeout=self.parameters.stop_timeout))
+        self.results['changed'] = True
+        response = None
         if not self.check_mode:
             try:
                 if self.parameters.stop_timeout:
                     response = self.client.stop(container_id, timeout=self.parameters.stop_timeout)
                 else:
                     response = self.client.stop(container_id)
-                self.results['actions'].append(dict(stopped=container_id, timeout=self.parameters.stop_timeout))
-                self.results['changed'] = True
-                return response
             except Exception, exc:
                 self.fail("Error stopping container %s: %s" % (container_id, str(exc)))
+        return response
 
     def connect_container_to_network(self, container_id, network    ):
+        # TODO - Implement network connecions
         pass
 
 
