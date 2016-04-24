@@ -218,6 +218,7 @@ class ImageManager(DockerBaseClass):
         self.state = parameters.get('state')
         self.tag = parameters.get('tag')
         self.http_timeout = parameters.get('http_timeout')
+        self.debug = parameters.get('debug') 
         self.push = False
 
         if self.state in ['present', 'build']:
@@ -263,6 +264,14 @@ class ImageManager(DockerBaseClass):
                 if not self.check_mode:
                     for line in self.client.build(**params):
                         self.log(line, pretty_print=True)
+                        if line.get('error'):
+                            if line.get('errorDetail'):
+                                errorDetail = line.get('errorDetail')
+                                self.fail("Error building %s - code: %s message: %s" % (self.name,
+                                                                                        errorDetail.get('code'),
+                                                                                        errorDetail.get('message')))
+                            else:
+                                self.fail("Error building %s - %s" % (self.name, line.get('error')))
                 image = self.client.find_image(name=self.name, tag=self.tag)
                 if image:
                     self.results['image'] = image

@@ -71,3 +71,4 @@
 
 - assert:
     that: "output.image.push_status is defined"
+  when: output.changed
