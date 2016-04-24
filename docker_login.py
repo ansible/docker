@@ -27,7 +27,7 @@ module: docker_login
 
 short_description: Log into a Docker registry.
 
-version_added: "2.1.0"
+version_added: "2.0"
 
 description:
     - Provides functionality similar to the "docker login" command.
