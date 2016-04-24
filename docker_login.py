@@ -84,7 +84,7 @@ requirements:
 authors:
     - "Olaf Kilian <olaf.kilian@symanex.com>"
     - "Chris Houseknecht (@chouseknecht)"
-    - "James Tanner (@jtanner)"
+    - "James Tanner (@jctanner)"
 
 version_added: "2.0"
 

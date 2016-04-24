@@ -42,7 +42,6 @@ class FileManager(DockerBaseClass):
         self.client.fail(msg)
 
     def exec_module(self):
-        if
 
 
 

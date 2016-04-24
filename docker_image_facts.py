@@ -46,7 +46,7 @@ requirements:
 
 authors:
   - Chris Houseknecht (@chouseknecht)
-  - James Tanner (@jtanner)
+  - James Tanner (@jctanner)
 
 '''
 
