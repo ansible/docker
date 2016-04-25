@@ -916,12 +916,12 @@ class Container(DockerBaseClass):
         self.raw = container
         self.Id = None
         self.container = container
-        self.debug = self.parameters.debug
         if container:
             self.Id = container['Id']
             self.Image = container['Image']
         self.log(self.container, pretty_print=True)
         self.parameters = parameters
+        self.debug = self.parameters.debug
         self.parameters.expected_links = None
         self.parameters.expected_ports = None
         self.parameters.expected_exposed = None
