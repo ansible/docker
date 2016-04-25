@@ -8,5 +8,4 @@
    #  - { role: docker_container, when: "run_test in ['all', 'container']" } 
     - { role: docker_login, when: "run_test in ['all', 'login']" }
     - { role: docker_image, when: "run_test in ['all', 'image']" }
-   # - { role: docker_hello_world, when: "run_test in ['all', 'hello_world']" }
-
+    - { role: docker_hello_world, when: "run_test in ['all', 'hello_world']" }

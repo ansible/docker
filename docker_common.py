@@ -397,11 +397,11 @@ class AnsibleDockerClient(Client):
         self.log("Find image %s:%s" % (name, tag))
         images = self._image_lookup(name, tag)
         if len(images) == 0:
-            # In API <= 1.20 seeing docker.io/<name> as the name of images pulled from docker hub 
+            # In API <= 1.20 seeing 'docker.io/<name>' as the name of images pulled from docker hub
             registry, repo_name = auth.resolve_repository_name(name) 
             if registry == 'docker.io':
                 # the name does not contain a registry, so let's see if docker.io works 
-                lookup = "docker.io/%s" % (name)
+                lookup = "docker.io/%s" % name
                 self.log("Check for docker.io image: %s" % lookup)
                 images = self._image_lookup(lookup, tag)
 
@@ -445,8 +445,16 @@ class AnsibleDockerClient(Client):
         try:
             self.log("Pulling image %s:%s" % (name, tag))
             for line in self.pull(name, tag=tag, stream=True):
-                response = json.loads(line)
-                self.log(response, pretty_print=True)
+                line = json.loads(line)
+                self.log(line, pretty_print=True)
+                if line.get('error'):
+                    if line.get('errorDetail'):
+                        error_detail = line.get('errorDetail')
+                        self.fail("Error pulling %s - code: %s message: %s" % (name,
+                                                                               error_detail.get('code'),
+                                                                               error_detail.get('message')))
+                    else:
+                        self.fail("Error pulling %s - %s" % (name, line.get('error')))
             return self.find_image(name, tag)
         except Exception, exc:
             self.fail("Error pulling image %s:%s - %s" % (name, tag, str(exc)))
