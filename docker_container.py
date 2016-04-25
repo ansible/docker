@@ -569,6 +569,7 @@ class TaskParameters(DockerBaseClass):
         self.cpuset_cpus = None
         self.cpuset_mems = None
         self.cpu_shares = None
+        self.debug = False
         self.detach = None
         self.devices = None
         self.dns_servers = None
@@ -623,7 +624,7 @@ class TaskParameters(DockerBaseClass):
         self.debug = None
         self.debug_file = None
 
-        for key, value in client.module.params.iteritems():
+        for key, value in client.module.params.items():
             setattr(self, key, value)
 
         for param_name in REQUIRES_CONVERSION_TO_BYTES:
@@ -915,6 +916,7 @@ class Container(DockerBaseClass):
         self.raw = container
         self.Id = None
         self.container = container
+        self.debug = self.parameters.debug
         if container:
             self.Id = container['Id']
             self.Image = container['Image']
@@ -1329,6 +1331,7 @@ class ContainerManager(DockerBaseClass):
         self.results = results
         self.parameters = TaskParameters(client)
         self.check_mode = self.client.check_mode
+        self.debug = self.parameters.debug
 
         state = self.parameters.state
         if state in ('started', 'present'):
