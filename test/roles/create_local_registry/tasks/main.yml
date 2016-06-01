@@ -72,3 +72,14 @@
 - assert:
     that: "output.image.push_status is defined"
   when: output.changed
+
+- name: Should allow special chars in name
+  docker_login:
+    url: https://localhost:5000
+    username: chris+house_knecht
+    password: password123
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug

@@ -1,0 +1,38 @@
+- name: Create a container with a host bound volume
+  docker_container:
+    name: mounty1
+    image: ubuntu:14.04
+    command: sleep infinity
+    volumes:
+      - .:/tmp/data
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- name: Create a container with an unbound volume
+  docker_container:
+    name: mounty2
+    image: ubuntu:14.04
+    command: sleep infinity
+    volumes:
+      - /tmp/data
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  register: output
+
+- name: Create a container bound to named volume
+  docker_container:
+    name: mounty3
+    image: ubuntu:14.04
+    command: sleep infinity
+    volumes:
+      - foo:/tmp/data
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug

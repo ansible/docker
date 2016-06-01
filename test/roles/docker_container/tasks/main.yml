@@ -1,23 +1,226 @@
 - name: Remove ubuntu image
-  docker_images:
-    state: absent
-    name: ubuntu
-    tag: 14.04
-    force: yes
+  docker_image:
+    path: "{{ role_path + '/files/ubuntu_sshd' }}" 
+    name: ubuntu_sshd
     debug: "{{ playbook_debug }}"
   register: output
 
 - debug: var=output
+  when: playbook_debug
 
 - name: Build container with missing image
   docker_container:
-    name: ubuntu_14.04
-    image: ubuntu:14.04
-    command:
-      - "/usr/sbin/sshd"
-      - "-D"
+    name: ubuntu_running_ssh
+    image: ubuntu_sshd:latest 
     privileged: yes
+    debug: "{{ playbook_debug }}"
+    restart_policy: "no"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- name: Start a container with a command
+  docker_container:
+    name: sleepy 
+    image: ubuntu:14.04
+    debug: "{{ playbook_debug }}"
+    command: sleep infinity
+  register: output
+
+- debug: var=output   
+  when: playbook_debug
+
+- name: Create IntTesting network
+  command: docker network create --subnet 172.1.1.0/24 "{{ docker_network_name }}" 
+  register: output
+  ignore_errors: yes
+
+- name: Create IntTesting2 network
+  command: docker network create --subnet 172.1.10.0/24 "{{ docker_network_name + '2' }}" 
+  register: output
+  ignore_errors: yes
+
+- name: Add existing container to networks
+  docker_container:
+    name: sleepy
+    networks:
+      - name: "{{ docker_network_name }}" 
+        ipv4_address: 172.1.1.18
+      - name: "{{ docker_network_name + '2' }}" 
+        ipv4_address: 172.1.10.20
     debug: "{{ playbook_debug }}"
   register: output
 
 - debug: var=output
+  when: playbook_debug
+
+- assert:
+    that:
+      - "ansible_docker_container.NetworkSettings.Networks.{{ docker_network_name }} is defined"
+
+- name: Add existing container to networks, should be idempotent
+  docker_container:
+    name: sleepy
+    networks:
+      - name: "{{ docker_network_name }}" 
+        ipv4_address: 172.1.1.18
+      - name: "{{ docker_network_name + '2' }}" 
+        ipv4_address: 172.1.10.20
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that:
+      - not output.changed
+
+- name: Update container network aliases
+  docker_container:
+    name: sleepy
+    networks:
+      - name: "{{ docker_network_name }}"
+        aliases:
+          - sleepyz
+          - zzzz  
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that:
+      - "'sleepyz' in ansible_docker_container.NetworkSettings.Networks.{{ docker_network_name }}.Aliases"
+      - "'zzzz' in ansible_docker_container.NetworkSettings.Networks.{{ docker_network_name }}.Aliases"
+
+- name: Update container network aliases, should be idempotent
+  docker_container:
+    name: sleepy
+    networks:
+      - name: "{{ docker_network_name }}"
+        aliases:
+          - sleepyz
+          - zzzz  
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that:
+      - not output.changed
+
+- name: Remove container from one network
+  docker_container:
+    name: sleepy
+    networks:
+      - name: "{{ docker_network_name }}"
+    debug: "{{ playbook_debug }}"
+    purge_networks: yes
+  register: output
+
+- assert:
+    that:
+      - "ansible_docker_container.NetworkSettings.Networks.{{ docker_network_name }} is defined"
+      - "ansible_docker_container.NetworkSettings.Networks.{{ docker_network_name + '2' }} is not defined"
+
+- name: Remove container from all networks
+  docker_container:
+    name: sleepy
+    purge_networks: yes
+  register: output
+
+- assert:
+    that:
+      - "ansible_docker_container.NetworkSettings.Networks.{{ docker_network_name }} is not defined"
+      - "ansible_docker_container.NetworkSettings.Networks.{{ docker_network_name + '2' }} is not defined"
+
+- name: Create db container and add to network 
+  docker_container:
+    name: db_test
+    image: "postgres:latest"
+    networks:
+      - name: "{{ docker_network_name }}"
+    debug: "{{ playbook_debug }}" 
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- name: Start a container with networks 
+  docker_container:
+    name: sleepy2
+    image: ubuntu:14.04
+    command: sleep infinity
+    networks:
+      - name: "{{ docker_network_name }}"
+        ipv4_address: "172.1.1.100"
+        aliases:
+          - sleepyzz
+        links:
+          - db_test:db 
+          - sleepy
+      - name: "{{ docker_network_name + '2' }}"
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that:
+      - "ansible_docker_container.NetworkSettings.Networks.{{ docker_network_name }} is defined"
+      - "ansible_docker_container.NetworkSettings.Networks.{{ docker_network_name + '2' }} is defined" 
+
+- name: Start a container with networks should be idempotent
+  docker_container:
+    name: sleepy2
+    image: ubuntu:14.04
+    networks:
+      - name: "{{ docker_network_name }}"
+        ipv4_address: "172.1.1.100"
+        aliases:
+          - sleepyzz
+        links:
+          - db_test:db 
+          - sleepy
+      - name: "{{ docker_network_name + '2' }}"
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that:
+      - not output.changed
+
+- docker_container:
+    name: db_test
+    purge_networks: yes
+
+- docker_container:
+    name: sleepy2
+    purge_networks: yes 
+  
+- name: Remove IntTesting network
+  command: docker network rm "{{ docker_network_name }}" 
+  ignore_errors: yes
+
+- name: Remove IntTesting network
+  command: docker network rm "{{ docker_network_name + '2' }}" 
+  ignore_errors: yes
+
+- name: Remove containers
+  docker_container:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - sleepy
+    - ubuntu_running_ssh
+    - sleepy2
+    - db_test

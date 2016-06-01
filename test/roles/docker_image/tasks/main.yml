@@ -1,50 +1,3 @@
-- name: Remove image
-  docker_image:
-    name: pacur/centos-7
-    state: absent
-    debug: "{{ playbook_debug }}"
-  register: output
-
-- debug: var=output
-  when: playbook_debug
-
-- name: Get image facts
-  docker_image_facts:
-    name: pacur/centos-7
-    debug: "{{ playbook_debug }}"
-  register: output
-
-- debug: var=output
-  when: playbook_debug
-
-- name: Image should be absent
-  assert:
-    that: output.images | length == 0
-
-- name: Pull pacur/centos-7
-  docker_image:
-    name: pacur/centos-7
-    debug: "{{ playbook_debug }}"
-  register: output
-
-- debug: var=output
-  when: playbook_debug
-
-- assert:
-    that: "output.image.push_status is not defined"
-
-- name: Get image facts
-  docker_image_facts:
-    name: pacur/centos-7
-    debug: "{{ playbook_debug }}"
-  register: output
-
-- debug: var=output
-  when: playbook_debug
-
-- name: Image should be present
-  assert:
-    that: output.images | length == 1
 
 - file: path=my_sintra.tar state=absent
 
@@ -90,21 +43,6 @@
 - name: Archive file should be present
   assert:
     that: output.stat.exists
-
-- name: Archive_image
-  docker_image:
-    name: mysinatra
-    tag: v1
-    archive_path: my_sinatra.tar
-    debug: "{{ playbook_debug }}"
-  register: output
-
-- debug: var=output
-  when: playbook_debug
-
-- name: Archive should be idempotent
-  assert:
-    that: not output.changed
 
 - name: Remove image sinatra
   docker_image:
