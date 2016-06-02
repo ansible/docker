@@ -25,7 +25,7 @@ install:
   - cd ../../../../..
   - source ansible/hacking/env-setup 
   - ansible --version
-  - ansible-galaxy -p ./test/roles -r requirements.yml
+  - ansible-galaxy install -p ./test/roles -r requirements.yml
 
 script:
   - ansible-playbook test/lnmp_stack.yml 
