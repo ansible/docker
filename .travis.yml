@@ -17,7 +17,7 @@ before_install:
 install:
   - sudo pip install docker-py
   - sudo rm /usr/bin/python && sudo ln -s /usr/bin/python2.7 /usr/bin/python
-  - git checkout https://github.com/ansible/ansible.git 
+  - git clone https://github.com/ansible/ansible.git 
   - cd ansible && git submodule update --init 
   - cd lib/ansible/modules/core && git checkout devel
   - cd ../extras && git checkout devel
