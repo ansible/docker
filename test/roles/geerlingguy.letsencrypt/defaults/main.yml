@@ -1,6 +1,0 @@
----
-letsencrypt_repo: https://github.com/letsencrypt/letsencrypt
-letsencrypt_version: master
-letsencrypt_keep_updated: yes
-
-letsencrypt_dir: /opt/letsencrypt

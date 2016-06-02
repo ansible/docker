@@ -1,7 +1,0 @@
----
-- name: Clone Let's Encrypt into configured directory.
-  git:
-    repo: "{{ letsencrypt_repo }}"
-    dest: "{{ letsencrypt_dir }}"
-    version: "{{ letsencrypt_version }}"
-    update: "{{ letsencrypt_keep_updated }}"

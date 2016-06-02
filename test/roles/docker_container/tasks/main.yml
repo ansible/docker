@@ -202,18 +202,22 @@
 - docker_container:
     name: db_test
     purge_networks: yes
+  when: remove_containers
 
 - docker_container:
     name: sleepy2
     purge_networks: yes 
+  when: remove_containers
   
 - name: Remove IntTesting network
   command: docker network rm "{{ docker_network_name }}" 
   ignore_errors: yes
+  when: remove_containers
 
 - name: Remove IntTesting network
   command: docker network rm "{{ docker_network_name + '2' }}" 
   ignore_errors: yes
+  when: remove_containers
 
 - name: Remove containers
   docker_container:
@@ -224,3 +228,4 @@
     - ubuntu_running_ssh
     - sleepy2
     - db_test
+  when: remove_containers

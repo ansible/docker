@@ -5,8 +5,8 @@
 
 - name: Should fail on invalid email
   docker_login:
-    username: chouseknecht
-    password: xnvDhTjSdcIB
+    username: "{{ dockerhub_username }}" 
+    password: "{{ dockerhub_password }}" 
     email: foo
     debug: "{{ playbook_debug }}"
   register: output

@@ -101,7 +101,7 @@
 
 - name: Remove tagged image
   docker_image:
-    name: chouseknecht/mysinatra
+    name: dcoppenhagan/mysinatra
     tag: v1
     state: absent
 
@@ -109,7 +109,7 @@
   docker_image:
     name: mysinatra
     tag: v1
-    repository: chouseknecht/mysinatra 
+    repository: dcoppenhagan/mysinatra 
     debug: "{{ playbook_debug }}" 
   register: output
 

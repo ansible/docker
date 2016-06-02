@@ -3,8 +3,8 @@
     name: registry
     image: registry:2
     volumes:
-      - "./roles/create_local_registry/files/certs:/certs"
-      - "./roles/create_local_registry/files/auth:/auth"
+      - "{{ role_path }}/files/certs:/certs"
+      - "{{ role_path }}/files/auth:/auth"
     env:
       REGISTRY_HTTP_TLS_CERTIFICATE: /certs/domain.crt
       REGISTRY_HTTP_TLS_KEY: /certs/domain.key
@@ -26,8 +26,8 @@
     name: registry
     image: registry:2
     volumes:
-      - "./roles/create_local_registry/files/certs:/certs"
-      - "./roles/create_local_registry/files/auth:/auth"
+      - "{{ role_path }}/files/certs:/certs"
+      - "{{ role_path }}/files/auth:/auth"
     env:
       REGISTRY_HTTP_TLS_CERTIFICATE: /certs/domain.crt
       REGISTRY_HTTP_TLS_KEY: /certs/domain.key

@@ -1,3 +1,0 @@
----
-run_test: container_volumes
-playbook_debug: yes 
