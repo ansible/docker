@@ -105,15 +105,19 @@
 - debug: var=output
   when: playbook_debug
 
+- name: Get the nginx IP
+  set_fact:
+    nginx_ip: "{{ ansible_docker_container['NetworkSettings']['IPAddress'] }}"
+
 - name: Create the temp dir for data
   file: path="{{ temp_data_path }}" state=directory
 
 - name: Wait for nginx to start
-  local_action: wait_for port=80 host="{{ ansible_docker_container['NetworkSettings']['IPAddress'] }}" timeout=60
+  local_action: wait_for port=80 host="{{ nginx_ip }}" timeout=60
 
 - name: Verify the nginx container is listening on port 80
   get_url: 
-    url: "{{ 'http://' + output['container']['NetworkSettings']['IPAddress'] }}"
+    url: "{{ 'http://' + nginx_ip }}"
     dest: "{{ temp_data_path }}/index.html"
     force: yes
   changed_when: false
@@ -124,7 +128,7 @@
 
 - name: Get the database test page
   get_url: 
-    url: "{{ 'http://' + output['container']['NetworkSettings']['IPAddress'] + '/dbtest.php' }}"
+    url: "{{ 'http://' + nginx_ip + '/dbtest.php' }}"
     dest: "{{ temp_data_path }}/dbtest.php"
     force: yes
   changed_when: false
