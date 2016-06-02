@@ -21,7 +21,8 @@ install:
   - cd ansible && git submodule update --init 
   - cd lib/ansible/modules/core && git checkout devel
   - cd ../extras && git checkout devel
-  - cd && source ansible/hacking/env-setup 
+  - cd ../../../../..
+  - source ansible/hacking/env-setup 
   - ansible --version
 
 script:
