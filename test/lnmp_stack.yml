@@ -2,5 +2,7 @@
   hosts: localhost
   connection: local
   gather_facts: no
+  vars:
+    playbook_debug: no
   roles:
     - { role: docker_lnmp_stack }  
