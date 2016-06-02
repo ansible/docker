@@ -27,7 +27,7 @@
 
 - name: Build the mysql image
   docker_image:
-    path: ./roles/docker_lnmp_stack/files/mysql
+    path: "{{ role_path }}/files/mysql"
     name: lnmp_mysql
     tag: v1
   register: output
@@ -41,7 +41,7 @@
 
 - name: Build the nginx image
   docker_image:
-    path: ./roles/docker_lnmp_stack/files/nginx
+    path: "{{ role_path }}/docker_lnmp_stack/files/nginx"
     name: lnmp_nginx
     tag: v1
   register: output
