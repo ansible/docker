@@ -13,7 +13,7 @@
 
 - name: Build and archive image
   docker_image:
-    path: ./roles/docker_image/files/sinatra
+    path: "{{ role_path }}/files/sinatra"
     name: mysinatra
     tag: v1
     archive_path: my_sinatra.tar

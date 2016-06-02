@@ -22,7 +22,7 @@
   register: output
 
 - debug: var=output
-  register: output
+  when: playbook_debug
 
 - name: Create a container bound to named volume
   docker_container:
