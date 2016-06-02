@@ -1,3 +1,6 @@
+.. image:: https://travis-ci.org/ansible/docker-testing.svg?branch=master
+    :target: https://travis-ci.org/ansible/docker-testing
+
 Docker Testing 
 ==============
 
