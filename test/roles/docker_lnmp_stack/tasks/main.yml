@@ -12,7 +12,7 @@
   # become_user: root
 
 - name: Create data volume
-  file: path=/tmp/lnmp/mysql-data state=directory
+  file: path="{{ mysql_data_path }}" state=directory
 
 - name: Do the lnmp images exist
   docker_image_facts:
@@ -41,7 +41,7 @@
 
 - name: Build the nginx image
   docker_image:
-    path: "{{ role_path }}/docker_lnmp_stack/files/nginx"
+    path: "{{ role_path }}/files/nginx"
     name: lnmp_nginx
     tag: v1
   register: output
@@ -49,7 +49,8 @@
 - debug: var=output
   when: playbook_debug
 
-- assert:
+- name: Image build should be idempotent
+  assert:
     that: not output.changed
   when: image_facts.images | length == 2
 
@@ -58,7 +59,7 @@
     name: lnmp_mysql
     detach: yes
     volumes:
-      - /tmp/lnmp/mysql-data:/var/lib/mysql
+      - "{{ mysql_data_path }}:/var/lib/mysql"
     image: lnmp_mysql:v1
     debug: "{{ playbook_debug }}"
     ports:
@@ -86,11 +87,7 @@
   changed_when: false
 
 - name: Create nginx volumes
-  file: 
-    path: "{{ item }}" 
-    state: directory
-  with_items:
-    - /tmp/lnmp/nginx-sites/logs
+  file: path="{{ nginx_data_path }}" state=directory
 
 - name: Create nginx container
   docker_container:
@@ -99,7 +96,7 @@
     ports:
       - 0.0.0.0:80:80
     volumes:
-        - /tmp/lnmp/nginx-sites/logs/:/var/log/nginx
+        - "{{ nginx_data_path }}:/var/log/nginx"
     links:
       - lnmp_mysql:lnmp_mysql
     debug: "{{ playbook_debug }}"
@@ -109,7 +106,7 @@
   when: playbook_debug
 
 - name: Create the temp dir for data
-  file: path=/tmp/lnmp/temp state=directory
+  file: path="{{ temp_data_path }}" state=directory
 
 - name: Wait for nginx to start
   local_action: wait_for port=80 host="{{ ansible_docker_container['NetworkSettings']['IPAddress'] }}" timeout=60
@@ -117,7 +114,7 @@
 - name: Verify the nginx container is listening on port 80
   get_url: 
     url: "{{ 'http://' + output['container']['NetworkSettings']['IPAddress'] }}"
-    dest: /tmp/lnmp/temp/index.html
+    dest: "{{ temp_data_path }}/index.html"
     force: yes
   changed_when: false
   register: html  
@@ -128,14 +125,14 @@
 - name: Get the database test page
   get_url: 
     url: "{{ 'http://' + output['container']['NetworkSettings']['IPAddress'] + '/dbtest.php' }}"
-    dest: /tmp/lnmp/temp/dbtest.php
+    dest: "{{ temp_data_path }}/dbtest.php"
     force: yes
   changed_when: false
   register: html  
 
 - set_fact:
     htmlexpected: 'Name: Puffball'
-    htmlcontent: "{{ lookup('file', '/tmp/lnmp/temp/dbtest.php') }}"
+    htmlcontent: "{{ lookup('file', temp_data_path + '/dbtest.php') }}"
 
 - name: Validate the content of the dbtest
   assert:

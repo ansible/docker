@@ -1,0 +1,4 @@
+---
+temp_data_path: "{{ role_path }}/data/tmp"
+mysql_data_path: "{{ role_path }}/data/mysql"
+nginx_data_path: "{{ role_path }}/data/nginx"
