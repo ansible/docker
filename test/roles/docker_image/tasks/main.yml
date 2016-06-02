@@ -105,11 +105,11 @@
     tag: v1
     state: absent
 
-- name: Tag and push sinatra to docker_hub
+- name: Tag and push sinatra to local registry 
   docker_image:
     name: mysinatra
-    tag: v1
-    repository: dcoppenhagan/mysinatra 
+    tag: v1 
+    repository: localhost:5000/dcoppenhagan/mysinatra 
     debug: "{{ playbook_debug }}" 
   register: output
 
