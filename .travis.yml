@@ -31,8 +31,8 @@ install:
   - cd test
 
 script:
-  - ansible-playbook test/lnmp_stack.yml 
-  - ansible-playbook test/docker_tests.yml 
+  - ansible-playbook lnmp_stack.yml 
+  - ansible-playbook docker_tests.yml 
 
 after_script:
   # Cleanup
