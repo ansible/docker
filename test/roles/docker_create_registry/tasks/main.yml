@@ -49,8 +49,8 @@
 - name: Log into the new registry
   docker_login:
     registry_url: localhost:5000 
-    username: testuser
-    password: testpassword
+    username: "{{ local_registry_user }}" 
+    password: "{{ local_registry_password }}" 
     email: testuer@yahoo.com
     debug: "{{ playbook_debug }}"
   register: output
@@ -74,8 +74,8 @@
   when: output.changed
 
 - name: Image should exist in registry
-  command: "curl --insecure -u testuser:testpassword https://localhost:5000/v2/_catalog"
-    register: output
+  command: "curl --insecure -u {{ local_registry_user }}:{{ local_regsitry_password }} https://localhost:5000/v2/_catalog"
+  register: output
 
 - debug: var=output
   when: playbook_debug
