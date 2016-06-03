@@ -8,6 +8,7 @@ services:
 env:
   global:
     - PATH="/usr/bin:$PATH"
+    - HOMEDIR=${PWD}
 
 before_install:
   - deactivate
@@ -23,13 +24,13 @@ install:
   - cd ansible && git submodule update --init 
   - cd lib/ansible/modules/core && git checkout devel && git pull --rebase
   - cd ../extras && git checkout devel && git pull --rebase
-  - cd ../../../../..
+  - cd ${HOMEDIR} 
   - source ansible/hacking/env-setup 
   - ansible --version
   - ansible-galaxy install -p ./test/roles -r requirements.yml
+  - cd test
 
 script:
-  - cd test
   - ansible-playbook test/lnmp_stack.yml 
   - ansible-playbook test/docker_tests.yml 
 
