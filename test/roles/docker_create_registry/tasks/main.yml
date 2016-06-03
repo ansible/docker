@@ -74,7 +74,7 @@
   when: output.changed
 
 - name: Image should exist in registry
-  command: "curl --insecure -u {{ local_registry_user }}:{{ local_regsitry_password }} https://localhost:5000/v2/_catalog"
+  command: "curl --insecure -u {{ local_registry_user }}:{{ local_registry_password }} https://localhost:5000/v2/_catalog"
   register: output
 
 - debug: var=output
