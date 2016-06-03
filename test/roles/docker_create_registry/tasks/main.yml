@@ -73,6 +73,17 @@
     that: "output.image.push_status is defined"
   when: output.changed
 
+- name: Image should exist in registry
+  command: "curl --insecure -u testuser:testpassword https://192.168.99.100:5000/v2/_catalog"
+    register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that:
+      - "'chouseknecht' in output.stdout"
+
 - name: Should allow special chars in name
   docker_login:
     url: https://localhost:5000
@@ -83,3 +94,25 @@
 
 - debug: var=output
   when: playbook_debug
+
+- name: Should use image from local registry to create container
+  docker_container:
+    name: sleepy5 
+    image: localhost:5000/chouseknecht/ubuntu:14.04
+    command: sleep infinity
+    state: started
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that:
+      - ansible_docker_container.State.Running
+
+- name: Remove container
+  docker_container:
+    name: sleepy5
+    force_kill: yes
+    state: absent

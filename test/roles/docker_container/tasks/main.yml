@@ -20,7 +20,7 @@
 - debug: var=output
   when: playbook_debug
 
-- name: Start a container with a command
+- name: Start a container 
   docker_container:
     name: sleepy 
     image: ubuntu:14.04
@@ -202,30 +202,181 @@
 - docker_container:
     name: db_test
     purge_networks: yes
-  when: remove_containers
 
 - docker_container:
     name: sleepy2
     purge_networks: yes 
-  when: remove_containers
   
 - name: Remove IntTesting network
   command: docker network rm "{{ docker_network_name }}" 
   ignore_errors: yes
-  when: remove_containers
 
 - name: Remove IntTesting network
   command: docker network rm "{{ docker_network_name + '2' }}" 
   ignore_errors: yes
-  when: remove_containers
 
 - name: Remove containers
   docker_container:
     name: "{{ item }}"
     state: absent
+    force_kill: yes
   with_items:
     - sleepy
     - ubuntu_running_ssh
     - sleepy2
     - db_test
-  when: remove_containers
+
+- docker_container:
+    name: "{{ item }}" 
+    state: absent
+    force_kill: yes
+  with_items:
+    - sleepy5
+    - sleepy6 
+    - sleepy7
+    - sleepy8
+
+- name: Start container with exposed port range, root bind and command
+  docker_container:
+    name: sleepy5
+    image: ubuntu:14.04 
+    command: sleep infinity
+    expose:
+      - 6000-6100
+    volumes:
+      - "/:/rootfs:ro"
+    state: started 
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- name: Container sleepy5 should build with expected config 
+  assert:
+    that:
+      - ansible_docker_container.State.Running
+      - "ansible_docker_container.HostConfig.Binds[0] == '/:/rootfs:ro'"
+      - "ansible_docker_container.Config.Volumes['/rootfs'] is defined"
+      - "ansible_docker_container.Config.ExposedPorts['6000-6100/tcp'] is defined"
+      - "'sleep' in ansible_docker_container.Config.Cmd"
+      - "'infinity' in ansible_docker_container.Config.Cmd"
+
+- debug: var=output
+  when: playbook_debug 
+
+- name: Stop running container
+  docker_container:
+    name: sleepy5
+    state: stopped
+    force_kill: yes
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug 
+
+- name: Existing container should be stopped 
+  assert:
+    that:
+      - not ansible_docker_container.State.Running
+      - ansible_docker_container.State.Status == 'exited'
+
+- name: Create a present container
+  docker_container:
+    name: sleepy6
+    image: ubuntu:14.04 
+    command: sleep infinity 
+    debug: "{{ playbook_debug }}"
+    state: present 
+    force_kill: yes
+  register: output
+      
+- debug: var=output
+  when: playbook_debug
+
+- name: Container should be created and stopped
+  assert:
+    that:
+      - not ansible_docker_container.State.Running
+      - ansible_docker_container.State.Status == 'created'
+
+- name: Start container with published ports and no matching exposed ports 
+  docker_container:
+    image: ubuntu:14.04 
+    name: sleepy7 
+    command: sleep infinity
+    ports: 
+      - 9090:8080
+      - 9443:8443
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug 
+
+- name: Exposed ports should automatically include published ports
+  assert:
+    that:
+      - "ansible_docker_container.Config.ExposedPorts['8080/tcp'] is defined"
+      - "ansible_docker_container.Config.ExposedPorts['8443/tcp'] is defined"  
+
+- name: Test sleepy7 idempotency 
+  docker_container:
+    image: ubuntu:14.04
+    name: sleepy7
+    command: sleep infinity
+    ports:
+      - 9090:8080
+      - 9443:8443
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- name: Automatic exposed ports should be idempotent  
+  assert:
+    that:
+      - not output.changed
+
+- name: Start container with published ports and range of exposed ports 
+  docker_container:
+    image: ubuntu:14.04 
+    name: sleepy8 
+    ports: 
+      - 5090:5090
+      - 4443:4443
+    exposed:
+      - 4000-5090 
+    command: sleep infinity
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- name: Range of ports should be exposed 
+  assert:
+    that:
+      - ansible_docker_container.State.Running
+      - "ansible_docker_container.Config.ExposedPorts['4000-5090/tcp'] is defined"
+
+- name: Sleepy8 should be idempotent 
+  docker_container:
+    image: ubuntu:14.04
+    name: sleepy8
+    ports:
+      - 5090:5090
+      - 4443:4443
+    exposed:
+      - 4000-5090
+    command: sleep infinity
+    debug: "{{ playbook_debug }}" 
+  register: output   
+
+- debug: var=output
+  when: playbook_debug
+
+- name: Exposed port range should be idempotent 
+  assert:
+    that:
+      - not output.changed
+

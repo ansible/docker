@@ -21,14 +21,15 @@ install:
   - sudo rm /usr/bin/python && sudo ln -s /usr/bin/python2.7 /usr/bin/python
   - git clone https://github.com/ansible/ansible.git 
   - cd ansible && git submodule update --init 
-  - cd lib/ansible/modules/core && git checkout devel
-  - cd ../extras && git checkout devel
+  - cd lib/ansible/modules/core && git checkout devel && git pull --rebase
+  - cd ../extras && git checkout devel && git pull --rebase
   - cd ../../../../..
   - source ansible/hacking/env-setup 
   - ansible --version
   - ansible-galaxy install -p ./test/roles -r requirements.yml
 
 script:
+  - cd test
   - ansible-playbook test/lnmp_stack.yml 
   - ansible-playbook test/docker_tests.yml 
 

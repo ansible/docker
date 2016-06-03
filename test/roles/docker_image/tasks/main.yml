@@ -99,11 +99,14 @@
 - debug: var=output
   when: playbook_debug
 
-- name: Remove tagged image
-  docker_image:
-    name: dcoppenhagan/mysinatra
-    tag: v1
-    state: absent
+- name: Login into local registry
+  docker_login:
+    registry_url: localhost:5000
+    username: testuser
+    password: testpassword
+    email: testuer@yahoo.com
+    debug: "{{ playbook_debug }}"
+  register: output   
 
 - name: Tag and push sinatra to local registry 
   docker_image:

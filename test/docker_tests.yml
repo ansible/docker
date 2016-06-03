@@ -4,7 +4,6 @@
   vars: 
     run_test: all 
     playbook_debug: no 
-    remove_containers: no
   roles:
     - { role: docker_create_registry, when: "run_test in ['all', 'registry']" }
     - { role: docker_container, when: "run_test in ['all', 'container']" } 
