@@ -1,0 +1,4 @@
+---
+registry_host: localhost
+run_test: image
+playbook_debug: yes

@@ -48,7 +48,7 @@
 
 - name: Log into the new registry
   docker_login:
-    registry_url: localhost:5000 
+    registry_url: "{{ registry_host }}:5000"
     username: "{{ local_registry_user }}" 
     password: "{{ local_registry_password }}" 
     email: testuer@yahoo.com
@@ -58,11 +58,22 @@
 - debug: var=output
   when: playbook_debug
 
+- name: Remove tagged image, if it exists
+  docker_image:
+    name: "{{ registry_host }}:5000/chouseknecht/ubuntu"
+    tag: "14.04"
+    debug: "{{ playbook_debug }}"
+    state: absent
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
 - name: Tag and push an image
   docker_image:
     name: ubuntu
     tag: "14.04"
-    repository: localhost:5000/chouseknecht/ubuntu
+    repository: "{{ registry_host }}:5000/chouseknecht/ubuntu"
     debug: "{{ playbook_debug }}"
   register: output
 
@@ -74,7 +85,7 @@
   when: output.changed
 
 - name: Image should exist in registry
-  command: "curl --insecure -u {{ local_registry_user }}:{{ local_registry_password }} https://localhost:5000/v2/_catalog"
+  command: "curl --insecure -u {{ local_registry_user }}:{{ local_registry_password }} https://{{ registry_host }}:5000/v2/_catalog"
   register: output
 
 - debug: var=output
@@ -86,7 +97,7 @@
 
 - name: Should allow special chars in name
   docker_login:
-    url: https://localhost:5000
+    url: "https://{{ registry_host }}:5000"
     username: chris+house_knecht
     password: password123
     debug: "{{ playbook_debug }}"
@@ -98,7 +109,7 @@
 - name: Should use image from local registry to create container
   docker_container:
     name: sleepy5 
-    image: localhost:5000/chouseknecht/ubuntu:14.04
+    image: "{{ registry_host }}:5000/chouseknecht/ubuntu:14.04"
     command: sleep infinity
     state: started
     debug: "{{ playbook_debug }}"
