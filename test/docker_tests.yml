@@ -2,7 +2,7 @@
   hosts: localhost
   connection: local
   vars: 
-    run_test: all 
+    run_test: service 
     playbook_debug: no 
   roles:
     - { role: docker_create_registry, when: "run_test in ['all', 'image']" }
@@ -10,3 +10,4 @@
     - { role: docker_container_volumes, when: "run_test in ['all', 'container_volumes']" } 
     - { role: docker_login, when: "run_test in ['all', 'login']" }
     - { role: docker_image, when: "run_test in ['all', 'image']" }
+    - { role: docker_service, when: "run_test in ['all', 'service']" }
