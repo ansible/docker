@@ -1,9 +1,10 @@
 - name: Run docker integration tests
   hosts: localhost
   connection: local
+  gather_facts: no
   vars: 
-    run_test: service 
-    playbook_debug: no 
+    run_test: all 
+    playbook_debug: no
   roles:
     - { role: docker_create_registry, when: "run_test in ['all', 'image']" }
     - { role: docker_container, when: "run_test in ['all', 'container']" } 

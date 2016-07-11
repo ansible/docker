@@ -1,4 +1,4 @@
 ---
 registry_host: localhost
-run_test: image
+run_test: all 
 playbook_debug: yes

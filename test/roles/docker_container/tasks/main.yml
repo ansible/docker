@@ -380,3 +380,47 @@
     that:
       - not output.changed
 
+- name: Run detached  
+  docker_container:
+    image: busybox
+    name: waitforme
+    detach: false
+    command: sleep 15
+
+- name: Should be exited 
+  assert:
+    that:
+      - ansible_docker_container.State.Status == 'exited'
+
+- name: Inspect the container
+  command: docker inspect --format='{% raw %}{{.State.Status}}{% endraw %}' waitforme
+  register: output
+
+- name: Should exist
+  assert:
+    that:
+      - output.stdout_lines[0] == 'exited'
+
+- name: Run detached with cleanup 
+  docker_container:
+    image: busybox
+    name: waitforme
+    detach: false
+    cleanup: true
+    command: echo "This works!"
+  register: output
+
+- name: Should contain expected output 
+  assert:
+    that:
+      - "'This works!' in ansible_docker_container.Output"
+
+- name: Inspect the cotnainer, ignoring errors 
+  command: docker inspect waitforme
+  ignore_errors: yes
+  register: output
+
+- name: Should not exist 
+  assert:
+    that:
+      - output.failed
