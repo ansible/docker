@@ -34,3 +34,18 @@
 - assert:
     that:
       - "'Succeeded' in output.login_result.Status"
+
+- name: Should allow special chars in name
+  docker_login:
+    url: "https://{{ registry_host }}:5000"
+    username: chris+house_knecht
+    password: password123
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output
+  when: playbook_debug
+
+- assert:
+    that:
+      - "'Succeeded' in output.login_result.Status"

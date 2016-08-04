@@ -1,0 +1,8 @@
+- name: Create local registry 
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    playbook_debug: no
+  roles:
+    - role: docker_create_registry

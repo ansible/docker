@@ -11,6 +11,11 @@
 - debug: var=output
   when: playbook_debug
 
+- assert:
+    that:
+      - "ansible_docker_container.Mounts | length == 1"
+      - "ansible_docker_container.Mounts[0].Destination == '/tmp/data'"
+
 - name: Create a container with an unbound volume
   docker_container:
     name: mounty2
@@ -24,6 +29,11 @@
 - debug: var=output
   when: playbook_debug
 
+- assert:
+    that:
+      - "ansible_docker_container.Mounts | length == 1"
+      - "ansible_docker_container.Config.Volumes['/tmp/data'] == {}"
+
 - name: Create a container bound to named volume
   docker_container:
     name: mounty3
@@ -36,3 +46,9 @@
 
 - debug: var=output
   when: playbook_debug
+
+- assert:
+    that:
+      - "ansible_docker_container.Mounts | length == 1"
+      - "ansible_docker_container.Mounts[0].Name == 'foo'" 
+      - "ansible_docker_container.Config.Volumes['/tmp/data'] == {}"

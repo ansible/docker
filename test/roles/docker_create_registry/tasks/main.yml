@@ -74,6 +74,7 @@
     name: ubuntu
     tag: "14.04"
     repository: "{{ registry_host }}:5000/chouseknecht/ubuntu"
+    push: yes
     debug: "{{ playbook_debug }}"
   register: output
 
