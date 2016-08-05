@@ -60,7 +60,7 @@
 
 - name: Remove tagged image, if it exists
   docker_image:
-    name: "{{ registry_host }}:5000/chouseknecht/ubuntu"
+    name: "{{ registry_host }}:5000/chouseknecht/ubuntu:14.04"
     tag: "14.04"
     debug: "{{ playbook_debug }}"
     state: absent
@@ -73,7 +73,7 @@
   docker_image:
     name: ubuntu
     tag: "14.04"
-    repository: "{{ registry_host }}:5000/chouseknecht/ubuntu"
+    repository: "{{ registry_host }}:5000/chouseknecht/ubuntu:14.04"
     push: yes
     debug: "{{ playbook_debug }}"
   register: output
@@ -107,7 +107,13 @@
 - debug: var=output
   when: playbook_debug
 
-- name: Should use image from local registry to create container
+- name: Remove local copy
+  docker_image:
+    name: "{{ registry_host }}:5000/chouseknecht/ubuntu"
+    tag: "14.04"
+    state: absent
+
+- name: Should pull image from local registry to create container
   docker_container:
     name: sleepy5 
     image: "{{ registry_host }}:5000/chouseknecht/ubuntu:14.04"
