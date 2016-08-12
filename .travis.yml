@@ -21,9 +21,14 @@ install:
   - sudo pip install docker-py docker-compose
   - sudo rm /usr/bin/python && sudo ln -s /usr/bin/python2.7 /usr/bin/python
   - git clone https://github.com/ansible/ansible.git 
-  - cd ansible && git submodule update --init 
-  - cd lib/ansible/modules/core && git checkout devel && git pull --rebase
-  - cd ../extras && git checkout devel && git pull --rebase
+  - cd ansible 
+  - git submodule update --init 
+  - cd lib/ansible/modules/core 
+  - git checkout devel 
+  - git pull --rebase
+  - cd ../extras 
+  - git checkout devel
+  - git pull --rebase
   - cd ${HOMEDIR} 
   - source ansible/hacking/env-setup 
   - ansible --version
