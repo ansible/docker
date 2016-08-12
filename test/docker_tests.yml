@@ -4,7 +4,7 @@
   gather_facts: no
   vars: 
     run_test: all 
-    playbook_debug: no
+    playbook_debug: yes
   roles:
     - { role: docker_create_registry, when: "run_test in ['all', 'image']" }
     - { role: docker_container, when: "run_test in ['all', 'container']" } 
