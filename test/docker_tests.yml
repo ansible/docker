@@ -12,3 +12,4 @@
     - { role: docker_login, when: "run_test in ['all', 'login']" }
     - { role: docker_image, when: "run_test in ['all', 'image']" }
     - { role: docker_service, when: "run_test in ['all', 'service']" }
+    - { role: docker_network, when: "run_test in ['all', 'network']" }
