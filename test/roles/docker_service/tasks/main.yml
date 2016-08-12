@@ -44,6 +44,9 @@
     project_name: wordpress
     project_src: "{{ role_path }}/files/wordpress"
 
+- name: Pause, giving the services a chance to start
+  pause: seconds=5
+
 - command: docker ps --filter name=wordpress_db_1 --format {% raw %}'Status {{ .Status }}'{% endraw %}
   register: db_status 
 
