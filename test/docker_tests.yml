@@ -3,8 +3,8 @@
   connection: local
   gather_facts: no
   vars: 
-    run_test: container 
-    playbook_debug: yes
+    run_test: all 
+    playbook_debug: no 
   roles:
     - { role: docker_create_registry, when: "run_test in ['all', 'image']" }
     - { role: docker_container, when: "run_test in ['all', 'container']" } 

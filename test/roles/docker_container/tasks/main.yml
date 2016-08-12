@@ -90,7 +90,7 @@
       - name: "{{ docker_network_name }}"
         aliases:
           - sleepyz
-          - zzzz  
+          - zzzz
     debug: "{{ playbook_debug }}"
   register: output
 
@@ -109,7 +109,7 @@
       - name: "{{ docker_network_name }}"
         aliases:
           - sleepyz
-          - zzzz  
+          - zzzz
     debug: "{{ playbook_debug }}"
   register: output
 
