@@ -179,7 +179,7 @@
 
 - name: Check if image exists
   command: docker inspect "{{ registry_host }}:5000/chouseknecht/ubuntu:14.04"
-  ignore_yes
+  ignore_errors: yes
   register: output
 
 - name: Should not exist
