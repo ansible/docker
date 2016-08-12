@@ -1,0 +1,198 @@
+- name: Remove network one, if it exists
+  docker_network:
+    name: network_one
+    state: absent
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output 
+  when: "{{ playbook_debug }}"
+
+- name: Check that network_one was removed
+  command: "{% raw %}docker network inspect --format='{{ .Name }}' network_one{% endraw %}" 
+  ignore_errors: yes    
+  register: output
+
+- name: Should have errored
+  assert:
+    that:
+      - output.failed
+
+- name: Create network one
+  docker_network:
+    name: network_one
+    driver_options:
+      com.docker.network.bridge.name: net-1 
+    ipam_options:
+      gateway: '172.10.0.1'
+      subnet: '172.10.0.0/16'
+      iprange: '172.10.0.0/24'
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output 
+  when: "{{ playbook_debug }}"
+
+- name: Check that network one exists
+  command: "{% raw %}docker network inspect --format='{{ .Name }}' network_one{% endraw %}" 
+  register: output
+ 
+- name: Should exist
+  assert:
+    that:
+      - output.stdout == 'network_one' 
+
+- name: Create container_a
+  docker_container:
+    name: container_a
+    image: alpine:latest
+    command: sleep 1d
+
+- name: Create container_b
+  docker_container:
+    name: container_b
+    image: alpine:latest
+    command: sleep 1d
+
+- name: Add containers to network
+  docker_network:
+    name: network_one     
+    containers:
+      - container_a
+      - container_b
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output 
+  when: "{{ playbook_debug }}"
+
+- name: Should have containers
+  assert:
+    that:
+      - "{{ ansible_docker_network.Containers | length }} == 2"
+
+- name: Add containers to network, again
+  docker_network:
+    name: network_one     
+    containers:
+      - container_a
+      - container_b
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output 
+  when: "{{ playbook_debug }}"
+ 
+- name: Adding containers should be idempotent
+  assert:
+    that: not output.changed
+  
+- name: Change network one
+  docker_network:
+    name: network_one
+    driver_options:
+      com.docker.network.bridge.name: mynet-1
+    ipam_options:
+      gateway: '172.10.0.3'
+      subnet: '172.10.0.0/16'
+      iprange: '172.10.0.0/24'
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output 
+  when: "{{ playbook_debug }}"
+
+- name: Network should have changes
+  assert:
+    that:
+      - ansible_docker_network.IPAM.Config[0].Gateway == '172.10.0.3'
+      - ansible_docker_network.Options['com.docker.network.bridge.name'] == 'mynet-1'
+
+- name: Network should still have connected containers
+  assert:
+    that:
+      - "{{ ansible_docker_network.Containers | length }} == 2"
+
+- name: Change network one, again
+  docker_network:
+    name: network_one
+    driver_options:
+      com.docker.network.bridge.name: mynet-1
+    ipam_options:
+      gateway: '172.10.0.3'
+      subnet: '172.10.0.0/16'
+      iprange: '172.10.0.0/24'
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output 
+  when: "{{ playbook_debug }}"
+
+- name: Should be idempotent
+  assert:
+    that:
+      - not output.changed  
+
+- name: Change number of attached containers
+  docker_network:
+    name: network_one
+    containers:
+      - container_a
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output 
+  when: "{{ playbook_debug }}"
+
+- name: Should be cononanical 
+  assert:
+    that:
+      - "{{ ansible_docker_network.Containers | length }} == 1"
+
+- name: Add a container
+  docker_network:
+    name: network_one
+    containers:
+      - container_b
+    appends: yes
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output 
+  when: "{{ playbook_debug }}"
+
+- name: Should append container
+  assert:
+    that:
+      - "{{ ansible_docker_network.Containers | length }} == 2"
+
+
+- name: Forcefully remove network
+  docker_network:
+    name: network_one
+    state: absent
+    force: yes
+    debug: "{{ playbook_debug }}"
+  register: output
+
+- debug: var=output 
+  when: "{{ playbook_debug }}"
+
+- name: Check that network_one was removed
+  command: "{% raw %}docker network inspect --format='{{ .Name }}' network_one{% endraw %}" 
+  ignore_errors: yes    
+  register: output
+
+- name: Should have errored
+  assert:
+    that:
+      - output.failed
+
+- name: Remove containers
+  docker_container:
+    name: "{{ item }}" 
+    state: absent
+    force_kill: yes
+  with_items:
+    - container_a
+    - container_b

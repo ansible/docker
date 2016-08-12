@@ -1,0 +1,9 @@
+- name: Run docker integration tests
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars: 
+    run_test: all 
+    playbook_debug: no
+  roles:
+    - { role: docker_network, when: "run_test in ['all', 'network']" }
