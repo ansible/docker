@@ -1,3 +1,9 @@
+- name: Remove sleepy, if exists
+  docker_container:
+    name: sleepy
+    state: absent
+    force_kill: yes
+
 - name: Remove ubuntu image
   docker_image:
     path: "{{ role_path + '/files/ubuntu_sshd' }}" 
